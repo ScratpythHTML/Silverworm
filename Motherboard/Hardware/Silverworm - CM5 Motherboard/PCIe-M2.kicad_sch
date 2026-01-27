@@ -5,10 +5,11 @@
 	(uuid "1354903a-b7d2-4e04-b220-6c6c8f058ef7")
 	(paper "A4")
 	(title_block
-		(title "Compute Module 5 IO Board - M2 Socket")
+		(title "Compute Module 5 IO Board - Top Level")
+		(date "2026-01-27")
 		(rev "1")
-		(company "Copyright © 2024 Raspberry Pi Ltd.")
-		(comment 1 "www.raspberrypi.com")
+		(company "Copyright © Zak Leek, Imperial College London")
+		(comment 1 "DMT4 - Silerworm, Group 4C")
 	)
 	(lib_symbols
 		(symbol "CM5IO:AP3441SHE-7B"

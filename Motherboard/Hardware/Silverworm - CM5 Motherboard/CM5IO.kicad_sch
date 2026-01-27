@@ -5,10 +5,11 @@
 	(uuid "e63e39d7-6ac0-4ffd-8aa3-1841a4541b55")
 	(paper "A4")
 	(title_block
-		(title "Compute Module 5 IO Board - Top Level")
+		(title "Silverworm CM5 Motherboard - Top Level")
+		(date "2026-01-27")
 		(rev "1")
-		(company "Copyright © 2024 Raspberry Pi Ltd.")
-		(comment 1 "www.raspberrypi.com")
+		(company "Copyright © Zak Leek, Imperial College London")
+		(comment 1 "DMT4 - Silerworm, Group 4C")
 	)
 	(lib_symbols
 		(symbol "Connector:USB_C_Receptacle_USB2.0_16P"
@@ -1180,7 +1181,7 @@
 	)
 	(text "Discharge Resistor\nNeeded by some\nType C PSUs"
 		(exclude_from_sim no)
-		(at 99.314 48.514 0)
+		(at 90.424 36.576 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1199,7 +1200,7 @@
 		)
 		(uuid "83a16201-aa87-4b79-ab8b-ea9be47b79ef")
 	)
-	(text "Connectors\n-------\nHDMI 0\nHDMI 1\nCSI/DSI 0\nCSI/DSI 1"
+	(text "Connectors\n-------\nHDMI 0\nHDMI 1\nCSI/DSI 0\nCSI/DSI 1\nUSB 3.0"
 		(exclude_from_sim no)
 		(at 148.59 58.42 0)
 		(effects
@@ -1223,16 +1224,10 @@
 		(uuid "bf5901c0-daf4-45af-a380-5243d8455cd9")
 	)
 	(junction
-		(at 62.23 62.23)
+		(at 92.71 50.8)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "e0fd23ff-7ee6-4bae-9985-b56544823d46")
-	)
-	(junction
-		(at 62.23 57.15)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "e893d0b8-52a7-4c2e-afa0-d0df7578cae6")
+		(uuid "c3c1c903-5b37-4cb5-af4f-50516ac6840e")
 	)
 	(no_connect
 		(at 62.23 74.93)
@@ -1244,13 +1239,13 @@
 	)
 	(wire
 		(pts
-			(xy 115.57 76.2) (xy 129.54 76.2)
+			(xy 176.53 97.79) (xy 180.34 97.79)
 		)
 		(stroke
 			(width 0)
 			(type solid)
 		)
-		(uuid "066d6649-7da9-4473-adde-64635ca5293b")
+		(uuid "004f8d0b-6cfe-42bc-a9b0-ac19e18f702b")
 	)
 	(wire
 		(pts
@@ -1264,23 +1259,13 @@
 	)
 	(wire
 		(pts
-			(xy 180.34 96.52) (xy 180.34 111.76)
+			(xy 176.53 96.52) (xy 176.53 97.79)
 		)
 		(stroke
 			(width 0)
 			(type solid)
 		)
 		(uuid "0b18ae4b-e508-4f6f-a23a-00f2ca64dfe7")
-	)
-	(wire
-		(pts
-			(xy 113.03 48.26) (xy 129.54 48.26)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "0f3c9e3a-9c59-4881-b27a-d0e982b3ea8e")
 	)
 	(wire
 		(pts
@@ -1291,6 +1276,16 @@
 			(type solid)
 		)
 		(uuid "14f9e820-8d3f-4833-ac31-9b9e9028d8dc")
+	)
+	(wire
+		(pts
+			(xy 78.74 44.45) (xy 78.74 40.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "19c29899-4feb-49a1-a62f-ffba793e68a7")
 	)
 	(wire
 		(pts
@@ -1314,16 +1309,6 @@
 	)
 	(wire
 		(pts
-			(xy 115.57 57.15) (xy 115.57 50.8)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "21a8ebe3-7776-4de9-97a7-450b4f8b5c07")
-	)
-	(wire
-		(pts
 			(xy 43.18 83.82) (xy 43.18 82.55)
 		)
 		(stroke
@@ -1331,6 +1316,16 @@
 			(type default)
 		)
 		(uuid "26eed24a-a6fe-4994-877d-88ca1bd022b3")
+	)
+	(wire
+		(pts
+			(xy 92.71 49.53) (xy 92.71 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2b5938b7-0bc7-4c40-a9ba-e01b146fc8b6")
 	)
 	(wire
 		(pts
@@ -1364,16 +1359,6 @@
 	)
 	(wire
 		(pts
-			(xy 62.23 62.23) (xy 113.03 62.23)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "44be5912-68f6-48ac-a8ab-e4a6332bc32b")
-	)
-	(wire
-		(pts
 			(xy 149.86 96.52) (xy 149.86 111.76)
 		)
 		(stroke
@@ -1381,6 +1366,16 @@
 			(type solid)
 		)
 		(uuid "44f248e5-7e3d-4277-981e-868f83cad8fe")
+	)
+	(wire
+		(pts
+			(xy 90.17 49.53) (xy 92.71 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "47be57b8-ff8a-4121-abfd-bbf236e9328f")
 	)
 	(wire
 		(pts
@@ -1424,16 +1419,6 @@
 	)
 	(wire
 		(pts
-			(xy 113.03 48.26) (xy 113.03 62.23)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "59d43607-0f19-4477-88e6-8d4e79b5589b")
-	)
-	(wire
-		(pts
 			(xy 162.56 96.52) (xy 162.56 111.76)
 		)
 		(stroke
@@ -1451,6 +1436,16 @@
 			(type solid)
 		)
 		(uuid "71c77456-1405-42e3-95ed-69e629de0558")
+	)
+	(wire
+		(pts
+			(xy 78.74 29.21) (xy 78.74 33.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7226bc20-6318-4801-9ad7-22376bf17fe4")
 	)
 	(wire
 		(pts
@@ -1484,16 +1479,6 @@
 	)
 	(wire
 		(pts
-			(xy 62.23 44.45) (xy 87.63 44.45)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "88848e1a-94f9-4abe-8312-936be7b01e84")
-	)
-	(wire
-		(pts
 			(xy 62.23 62.23) (xy 62.23 64.77)
 		)
 		(stroke
@@ -1524,6 +1509,16 @@
 	)
 	(wire
 		(pts
+			(xy 82.55 52.07) (xy 92.71 52.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a6c09860-9164-42be-b614-09004be5d2e4")
+	)
+	(wire
+		(pts
 			(xy 186.69 72.39) (xy 214.63 72.39)
 		)
 		(stroke
@@ -1531,6 +1526,16 @@
 			(type default)
 		)
 		(uuid "a8690438-b6c5-46ae-bc23-906e22bda6c7")
+	)
+	(wire
+		(pts
+			(xy 93.98 50.8) (xy 92.71 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aa67527a-9f23-418b-965b-a4d600147de1")
 	)
 	(wire
 		(pts
@@ -1564,7 +1569,7 @@
 	)
 	(wire
 		(pts
-			(xy 62.23 49.53) (xy 74.93 49.53)
+			(xy 62.23 49.53) (xy 82.55 49.53)
 		)
 		(stroke
 			(width 0)
@@ -1581,6 +1586,16 @@
 			(type solid)
 		)
 		(uuid "b994142f-02ac-4881-9587-6d3df53c96d2")
+	)
+	(wire
+		(pts
+			(xy 180.34 97.79) (xy 180.34 111.76)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(uuid "bd7680bd-186f-4dc9-847d-f8f42395b0bd")
 	)
 	(wire
 		(pts
@@ -1614,23 +1629,23 @@
 	)
 	(wire
 		(pts
-			(xy 115.57 72.39) (xy 129.54 72.39)
+			(xy 92.71 52.07) (xy 92.71 50.8)
 		)
 		(stroke
 			(width 0)
-			(type solid)
+			(type default)
 		)
-		(uuid "dcc1b707-1c31-480b-a92c-629b791978dc")
+		(uuid "d927e0ee-8f4f-4903-9061-1aa1ea8fb42f")
 	)
 	(wire
 		(pts
-			(xy 115.57 50.8) (xy 129.54 50.8)
+			(xy 62.23 44.45) (xy 78.74 44.45)
 		)
 		(stroke
 			(width 0)
-			(type solid)
+			(type default)
 		)
-		(uuid "e83e0227-ac0f-4180-82bd-68d3a7b56476")
+		(uuid "dacf697c-4eac-4683-a7ef-18420c978e26")
 	)
 	(wire
 		(pts
@@ -1641,16 +1656,6 @@
 			(type solid)
 		)
 		(uuid "f144a97d-c3f0-423f-b0a9-3f7dbc42478b")
-	)
-	(wire
-		(pts
-			(xy 62.23 57.15) (xy 115.57 57.15)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "f1f3a160-e530-44d2-9a4b-2d9f99bce435")
 	)
 	(wire
 		(pts
@@ -1712,26 +1717,6 @@
 		)
 		(uuid "55992e35-fe7b-468a-9b7a-1e4dc931b904")
 	)
-	(label "+5v"
-		(at 120.015 72.39 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "5740c959-93d8-47fd-8f68-62f0109e753d")
-	)
-	(label "USB2_P"
-		(at 74.93 62.23 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "78e172c5-2c2b-4fcb-8b42-831736ce03f0")
-	)
 	(label "CC1"
 		(at 64.77 49.53 0)
 		(effects
@@ -1742,16 +1727,6 @@
 		)
 		(uuid "7d5a2b2f-0ea3-4086-b538-65807005ae2a")
 	)
-	(label "USB2_N"
-		(at 74.93 57.15 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "8fb87edd-d458-4791-a78f-346acfa66542")
-	)
 	(label "+3.3v"
 		(at 189.23 130.81 0)
 		(effects
@@ -1761,16 +1736,6 @@
 			(justify left bottom)
 		)
 		(uuid "a06e8e78-f567-42e6-b645-013b1073ca31")
-	)
-	(label "+3.3v"
-		(at 120.015 76.2 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "c3c93de0-69b1-4a04-8e0b-d78caf487c63")
 	)
 	(label "CC2"
 		(at 64.77 52.07 0)
@@ -2658,7 +2623,8 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 87.63 52.07 0)
+		(at 78.74 29.21 0)
+		(mirror x)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2666,7 +2632,7 @@
 		(dnp no)
 		(uuid "0f587d05-4aa1-46ea-a0c4-07798c4d83f9")
 		(property "Reference" "#PWR031"
-			(at 87.63 58.42 0)
+			(at 78.74 22.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2675,7 +2641,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 87.757 56.4642 0)
+			(at 78.867 24.8158 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2683,7 +2649,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 87.63 52.07 0)
+			(at 78.74 29.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2692,7 +2658,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 87.63 52.07 0)
+			(at 78.74 29.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2701,7 +2667,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 87.63 52.07 0)
+			(at 78.74 29.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2716,6 +2682,195 @@
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(reference "#PWR031")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 86.36 49.53 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "2aea7de3-f443-4204-ba75-23cbecbf4eb6")
+		(property "Reference" "R18"
+			(at 84.836 45.466 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "5.1K"
+			(at 84.074 47.371 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 86.36 51.308 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://fscdn.rohm.com/en/products/databook/datasheet/passive/resistor/chip_resistor/mcr-e.pdf"
+			(at 86.36 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 86.36 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field4" "Farnell"
+			(at 86.36 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 86.36 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field7" ""
+			(at 86.36 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field6" ""
+			(at 86.36 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Part Description" "Resistor 2.2K M1005 1% 63mW"
+			(at 86.36 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field8" ""
+			(at 86.36 49.53 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "7e902d7b-45c6-4124-8ad4-7903d3b0b7c3")
+		)
+		(pin "2"
+			(uuid "c26de235-ed7f-44bc-89e9-8865af1228d8")
+		)
+		(instances
+			(project "CM5IO"
+				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
+					(reference "R18")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 93.98 50.8 90)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "3576e9e7-06bb-42ea-9013-2f2beeb50f4c")
+		(property "Reference" "#PWR05"
+			(at 100.33 50.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 98.3742 50.927 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 93.98 50.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 93.98 50.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 93.98 50.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "be6cdf58-668c-4791-8619-902dd3549eea")
+		)
+		(instances
+			(project "CM5IO"
+				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
+					(reference "#PWR05")
 					(unit 1)
 				)
 			)
@@ -2995,33 +3150,33 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 87.63 48.26 0)
+		(at 78.74 52.07 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "b30c000d-795b-488f-8e69-a058391ab578")
-		(property "Reference" "R9"
-			(at 83.058 46.355 0)
+		(uuid "a4bff92b-442f-40da-beb7-8c95d34bf691")
+		(property "Reference" "R19"
+			(at 76.708 53.975 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
-		(property "Value" "2.2K 1%"
-			(at 77.978 48.26 0)
+		(property "Value" "5.1K"
+			(at 75.946 55.88 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 85.852 48.26 90)
+			(at 78.74 53.848 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3030,7 +3185,7 @@
 			)
 		)
 		(property "Datasheet" "https://fscdn.rohm.com/en/products/databook/datasheet/passive/resistor/chip_resistor/mcr-e.pdf"
-			(at 87.63 48.26 0)
+			(at 78.74 52.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3039,7 +3194,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 87.63 48.26 0)
+			(at 78.74 52.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3048,7 +3203,7 @@
 			)
 		)
 		(property "Field4" "Farnell"
-			(at 87.63 48.26 0)
+			(at 78.74 52.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3057,7 +3212,7 @@
 			)
 		)
 		(property "Field5" ""
-			(at 87.63 48.26 0)
+			(at 78.74 52.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3066,7 +3221,7 @@
 			)
 		)
 		(property "Field7" ""
-			(at 87.63 48.26 0)
+			(at 78.74 52.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3075,7 +3230,7 @@
 			)
 		)
 		(property "Field6" ""
-			(at 87.63 48.26 0)
+			(at 78.74 52.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3084,7 +3239,7 @@
 			)
 		)
 		(property "Part Description" "Resistor 2.2K M1005 1% 63mW"
-			(at 87.63 48.26 0)
+			(at 78.74 52.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3093,7 +3248,130 @@
 			)
 		)
 		(property "Field8" ""
-			(at 87.63 48.26 0)
+			(at 78.74 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "0b346ca0-c919-4cab-85f6-a77e31403c35")
+		)
+		(pin "2"
+			(uuid "02eeaf88-44f1-47be-a1d1-073e09eda836")
+		)
+		(instances
+			(project "CM5IO"
+				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
+					(reference "R19")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 78.74 36.83 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b30c000d-795b-488f-8e69-a058391ab578")
+		(property "Reference" "R9"
+			(at 74.168 34.925 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "2.2K 1%"
+			(at 69.088 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 76.962 36.83 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://fscdn.rohm.com/en/products/databook/datasheet/passive/resistor/chip_resistor/mcr-e.pdf"
+			(at 78.74 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 78.74 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field4" "Farnell"
+			(at 78.74 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 78.74 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field7" ""
+			(at 78.74 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field6" ""
+			(at 78.74 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Part Description" "Resistor 2.2K M1005 1% 63mW"
+			(at 78.74 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field8" ""
+			(at 78.74 36.83 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3626,13 +3904,13 @@
 			)
 		)
 		(pin "+5v" input
-			(at 129.54 72.39 180)
+			(at 186.69 85.09 0)
 			(uuid "0f22151c-f260-4674-b486-4710a2c42a55")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(pin "PCIE_CLK_P" output
@@ -3716,13 +3994,13 @@
 			)
 		)
 		(pin "+3.3v" input
-			(at 129.54 76.2 180)
+			(at 186.69 88.9 0)
 			(uuid "4c8eb964-bdf4-44de-90e9-e2ab82dd5313")
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 		(pin "USBOTG_ID" input
@@ -3736,7 +4014,7 @@
 			)
 		)
 		(pin "GPIO_VREF" input
-			(at 180.34 96.52 270)
+			(at 176.53 96.52 270)
 			(uuid "9bb20359-0f8b-45bc-9d38-6626ed3a939d")
 			(effects
 				(font
@@ -3942,6 +4220,48 @@
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
 					(page "4")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 210.82 97.79)
+		(size 12.7 17.78)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0.0000)
+		)
+		(uuid "b6c57374-8351-43a9-8198-65611bcec18f")
+		(property "Sheetname" "USB 2.0 Hub"
+			(at 210.82 97.0784 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "RPiCM5_USB2_hub.kicad_sch"
+			(at 210.82 116.1546 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "CM5IO"
+				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55"
+					(page "5")
 				)
 			)
 		)

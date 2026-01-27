@@ -5,10 +5,11 @@
 	(uuid "3457afc5-3e4f-4220-81d1-b079f653a722")
 	(paper "A4")
 	(title_block
-		(title "Compute Module 5 IO Board - CM5 - Highspeed")
+		(title "Compute Module 5 IO Board - Top Level")
+		(date "2026-01-27")
 		(rev "1")
-		(company "Copyright © 2024 Raspberry Pi Ltd.")
-		(comment 1 "www.raspberrypi.com")
+		(company "Copyright © Zak Leek, Imperial College London")
+		(comment 1 "DMT4 - Silerworm, Group 4C")
 	)
 	(lib_symbols
 		(symbol "CM5IO:AP2553W6"
@@ -7909,16 +7910,6 @@
 	)
 	(wire
 		(pts
-			(xy 31.75 38.1) (xy 38.1 38.1)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "2938bf2d-2d32-4cb0-9d4d-563ea28ffffa")
-	)
-	(wire
-		(pts
 			(xy 35.56 109.22) (xy 38.1 109.22)
 		)
 		(stroke
@@ -8036,16 +8027,6 @@
 			(type solid)
 		)
 		(uuid "2f5467a7-bd49-433c-92f2-60a842e66f7b")
-	)
-	(wire
-		(pts
-			(xy 31.75 27.94) (xy 38.1 27.94)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2f75af73-81af-4c13-9b1c-587f6551682a")
 	)
 	(wire
 		(pts
@@ -8369,16 +8350,6 @@
 	)
 	(wire
 		(pts
-			(xy 38.1 43.18) (xy 31.75 43.18)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "5099f397-6fe7-454f-899c-34e2b5f22ca7")
-	)
-	(wire
-		(pts
 			(xy 99.06 76.2) (xy 115.57 76.2)
 		)
 		(stroke
@@ -8399,16 +8370,6 @@
 	)
 	(wire
 		(pts
-			(xy 31.75 30.48) (xy 38.1 30.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5243fe6a-ae55-40b5-8db1-ec9d4b04147b")
-	)
-	(wire
-		(pts
 			(xy 99.06 132.08) (xy 101.6 132.08)
 		)
 		(stroke
@@ -8426,16 +8387,6 @@
 			(type solid)
 		)
 		(uuid "53ae21b8-f187-4817-8c27-1f06278d249b")
-	)
-	(wire
-		(pts
-			(xy 31.75 53.34) (xy 38.1 53.34)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "53fda1fb-12bd-4536-80e1-aab5c0e3fc58")
 	)
 	(wire
 		(pts
@@ -8656,16 +8607,6 @@
 			(type solid)
 		)
 		(uuid "64269ac3-771b-4c0d-91e0-eafc3dc4a07f")
-	)
-	(wire
-		(pts
-			(xy 38.1 45.72) (xy 31.75 45.72)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "6474aa6c-825c-4f0f-9938-759b68df02a5")
 	)
 	(wire
 		(pts
@@ -9049,16 +8990,6 @@
 	)
 	(wire
 		(pts
-			(xy 31.75 35.56) (xy 38.1 35.56)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "89bd1fdd-6a91-474e-8495-7a2ba7eb6260")
-	)
-	(wire
-		(pts
 			(xy 101.6 139.7) (xy 101.6 147.32)
 		)
 		(stroke
@@ -9076,16 +9007,6 @@
 			(type solid)
 		)
 		(uuid "8afe1dbf-1187-4362-8af8-a90ca839a6b3")
-	)
-	(wire
-		(pts
-			(xy 31.75 25.4) (xy 38.1 25.4)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "8b022692-69b7-4bd6-bf38-57edecf356fa")
 	)
 	(wire
 		(pts
@@ -9166,16 +9087,6 @@
 			(type solid)
 		)
 		(uuid "90f2ca05-313f-4af8-87b1-a8109224a221")
-	)
-	(wire
-		(pts
-			(xy 31.75 50.8) (xy 38.1 50.8)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "929c74c0-78bf-4efe-a778-fa328e951865")
 	)
 	(wire
 		(pts
@@ -9996,16 +9907,6 @@
 			(type solid)
 		)
 		(uuid "d5a7688c-7438-4b6d-999f-4f2a3cb18fd6")
-	)
-	(wire
-		(pts
-			(xy 99.06 35.56) (xy 105.41 35.56)
-		)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(uuid "d5c86a84-6c8b-48b5-b583-2fe7052421ab")
 	)
 	(wire
 		(pts
@@ -11768,28 +11669,6 @@
 		)
 		(uuid "02b1295e-cf95-47ff-9c57-f8ada28f2e94")
 	)
-	(hierarchical_label "PCIE_PWR_EN"
-		(shape output)
-		(at 31.75 30.48 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "1dacd626-a559-4363-9eb3-77dde5d16024")
-	)
-	(hierarchical_label "PCIE_CLK_P"
-		(shape output)
-		(at 31.75 35.56 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "25247d0c-5910-484b-9651-5750d422a450")
-	)
 	(hierarchical_label "CAM_GPIO0"
 		(shape input)
 		(at 143.51 66.04 180)
@@ -11800,17 +11679,6 @@
 			(justify right)
 		)
 		(uuid "3bf0f47e-2fb0-4931-8f02-fb83a50ab482")
-	)
-	(hierarchical_label "PCIE_RX_N"
-		(shape input)
-		(at 31.75 45.72 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "4aee84d1-0859-48ac-a053-5a981ee1b24a")
 	)
 	(hierarchical_label "+5v"
 		(shape input)
@@ -11834,17 +11702,6 @@
 		)
 		(uuid "5290e0d7-1f24-4c0b-91ff-28c5a304ab9a")
 	)
-	(hierarchical_label "PCIE_nCLKREQ"
-		(shape input)
-		(at 31.75 25.4 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "59142adb-6887-41fc-851e-9a7f51511d60")
-	)
 	(hierarchical_label "ID_SC"
 		(shape input)
 		(at 185.42 119.38 180)
@@ -11855,17 +11712,6 @@
 			(justify right)
 		)
 		(uuid "5b04e20f-8575-4362-b040-2e2133d670c8")
-	)
-	(hierarchical_label "PCIE_RX_P"
-		(shape input)
-		(at 31.75 43.18 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "5fc4054a-b929-433e-a947-747fb7ed003d")
 	)
 	(hierarchical_label "GPIO_VREF"
 		(shape input)
@@ -11911,17 +11757,6 @@
 		)
 		(uuid "69f75991-c8c0-49a9-aed8-daa6ca9a5d73")
 	)
-	(hierarchical_label "PCIE_TX_P"
-		(shape output)
-		(at 31.75 50.8 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "811f5389-c208-4640-ab1a-b454491bb330")
-	)
 	(hierarchical_label "ID_SD"
 		(shape input)
 		(at 185.42 121.92 180)
@@ -11933,39 +11768,6 @@
 		)
 		(uuid "8e715b73-353f-4cfc-aa33-1eac54b89b6c")
 	)
-	(hierarchical_label "PCIE_nWAKE"
-		(shape input)
-		(at 31.75 27.94 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "a8b35311-4f8b-4438-aa47-dca2f66d55c9")
-	)
-	(hierarchical_label "PCIE_CLK_N"
-		(shape output)
-		(at 31.75 38.1 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "b6f041a4-3ea0-418b-94a2-50c938beafa2")
-	)
-	(hierarchical_label "PCIE_nRST"
-		(shape output)
-		(at 105.41 35.56 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "bb673c7a-d2b0-45b0-bfe2-0b113c092a77")
-	)
 	(hierarchical_label "CAM_GPIO1"
 		(shape input)
 		(at 143.51 68.58 180)
@@ -11976,17 +11778,6 @@
 			(justify right)
 		)
 		(uuid "d34b6539-c34f-49ef-9bdb-01215693557e")
-	)
-	(hierarchical_label "PCIE_TX_N"
-		(shape output)
-		(at 31.75 53.34 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "d4876469-b949-49ce-b8fe-43cb458692a4")
 	)
 	(hierarchical_label "SDA0"
 		(shape input)
