@@ -2457,6 +2457,16 @@
 	)
 	(wire
 		(pts
+			(xy 251.46 22.86) (xy 256.54 22.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a53256ed-99ba-4d4a-ab08-084d847c28eb")
+	)
+	(wire
+		(pts
 			(xy 63.5 147.32) (xy 62.23 147.32)
 		)
 		(stroke
@@ -16185,7 +16195,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_Tantalum_SMD:CP_EIA-1608-10_AVX-L"
 			(at 74.6252 78.74 0)
 			(effects
 				(font
@@ -16253,7 +16263,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 67.31 70.358 90)
 			(effects
 				(font
@@ -16389,7 +16399,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 60.452 76.2 90)
 			(effects
 				(font
@@ -16460,7 +16470,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_Tantalum_SMD:CP_EIA-1608-10_AVX-L"
 			(at 34.5948 78.74 0)
 			(effects
 				(font
@@ -16660,7 +16670,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 121.92 135.382 90)
 			(effects
 				(font
@@ -16728,7 +16738,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 157.48 133.858 90)
 			(effects
 				(font
@@ -16799,7 +16809,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 48.768 154.94 90)
 			(effects
 				(font
@@ -16867,7 +16877,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 121.92 111.252 90)
 			(effects
 				(font
@@ -16937,7 +16947,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
 			(at 135.89 27.94 0)
 			(effects
 				(font
@@ -17075,7 +17085,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
 			(at 135.89 66.04 0)
 			(effects
 				(font
@@ -17143,7 +17153,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 121.92 133.858 90)
 			(effects
 				(font
@@ -17345,7 +17355,7 @@
 				)
 			)
 		)
-		(property "Footprint" "MP008267"
+		(property "Footprint" "MP008267_LED:MP008267"
 			(at 149.86 106.68 0)
 			(effects
 				(font
@@ -17551,7 +17561,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinSocket_2.54mm:PinSocket_1x15_P2.54mm_Vertical"
 			(at 240.03 135.89 0)
 			(effects
 				(font
@@ -17661,7 +17671,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 48.768 76.2 90)
 			(effects
 				(font
@@ -17796,7 +17806,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinSocket_2.54mm:PinSocket_1x15_P2.54mm_Vertical"
 			(at 220.98 135.89 0)
 			(effects
 				(font
@@ -17906,7 +17916,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_Tantalum_SMD:CP_EIA-1608-10_AVX-L"
 			(at 34.5948 157.48 0)
 			(effects
 				(font
@@ -17976,7 +17986,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
 			(at 135.89 53.34 0)
 			(effects
 				(font
@@ -18044,7 +18054,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 121.92 109.728 90)
 			(effects
 				(font
@@ -18247,7 +18257,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "200MSP1T1B2M2QE:HDRV3W51P470X254_1X3_813X508X2100P"
 			(at 196.85 33.02 0)
 			(effects
 				(font
@@ -18319,7 +18329,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 41.91 149.098 90)
 			(effects
 				(font
@@ -18587,7 +18597,7 @@
 				)
 			)
 		)
-		(property "Footprint" "PEC11R4220KS0024"
+		(property "Footprint" "PEC11R-4220K-S0024:PEC11R4220KS0024"
 			(at 63.5 207.95 0)
 			(effects
 				(font
@@ -18722,7 +18732,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 67.31 149.098 90)
 			(effects
 				(font
@@ -18990,7 +19000,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 41.91 70.358 90)
 			(effects
 				(font
@@ -19058,7 +19068,7 @@
 				)
 			)
 		)
-		(property "Footprint" "MP008267"
+		(property "Footprint" "MP008267_LED:MP008267"
 			(at 149.86 130.81 0)
 			(effects
 				(font
@@ -19261,7 +19271,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 157.48 109.728 90)
 			(effects
 				(font
@@ -19331,7 +19341,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder"
 			(at 60.452 154.94 90)
 			(effects
 				(font
@@ -19469,7 +19479,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_Tantalum_SMD:CP_EIA-1608-10_AVX-L"
 			(at 74.6252 157.48 0)
 			(effects
 				(font
@@ -19603,7 +19613,7 @@
 				)
 			)
 		)
-		(property "Footprint" "PEC11R4220KS0024"
+		(property "Footprint" "PEC11R-4220K-S0024:PEC11R4220KS0024"
 			(at 63.5 129.21 0)
 			(effects
 				(font
@@ -19938,7 +19948,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_Molex:Molex_Micro-Fit_3.0_43045-0621_2x03-1MP_P3.00mm_Horizontal"
 			(at 261.62 25.4 0)
 			(effects
 				(font
@@ -20221,7 +20231,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_JST:JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"
 			(at 135.89 40.64 0)
 			(effects
 				(font
