@@ -1336,6 +1336,16 @@
 			(embedded_fonts no)
 		)
 	)
+	(text "Zak work out how the clock and power works?? - ask jack or something?"
+		(exclude_from_sim no)
+		(at 118.872 57.404 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "18e20c64-87bb-4cd9-8cd6-aae975aaee2b")
+	)
 	(junction
 		(at 120.65 120.65)
 		(diameter 0)
@@ -1965,7 +1975,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "CM5IO:57876171"
 			(at 226.06 132.08 0)
 			(effects
 				(font
@@ -2054,7 +2064,7 @@
 				)
 			)
 		)
-		(property "Footprint" "QFN50P500X500X80-29N-D"
+		(property "Footprint" "CM5IO:QFN50P500X500X80-29N-D"
 			(at 189.23 166.04 0)
 			(effects
 				(font
@@ -2508,7 +2518,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "CM5IO:57876171"
 			(at 124.46 113.03 0)
 			(effects
 				(font
