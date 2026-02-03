@@ -1,4 +1,4 @@
-27481433423792127
+27486742694402297
 200MSP1T1B2M2QE
 HDRV3W51P470X254_1X3_813X508X2100P
 200MSP1T1B2M2QE
@@ -65449,6 +65449,27 @@ heatsink
 0
 0
 0
+Imports
+57876171
+5787617-1
+Connector
+0
+12
+12
+Imports
+NE555DR
+D (R-PDSO-G8)
+Integrated Circuit
+0
+8
+8
+Imports
+QFN50P500X500X80-29N-D
+28-pin QFN (5 × 5 × 0.8 mm)
+Integrated Circuit
+0
+29
+29
 Inductor_SMD
 L_6.3x6.3_H3
 Choke, SMD, 6.3x6.3mm 3mm height
