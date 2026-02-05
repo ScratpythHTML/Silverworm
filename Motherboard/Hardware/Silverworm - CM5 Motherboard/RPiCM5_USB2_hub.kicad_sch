@@ -5,7 +5,7 @@
 	(uuid "7d90a1a0-8b8d-4b53-a6da-11124b1f5d2f")
 	(paper "A4")
 	(title_block
-		(title "Compute Module 5 IO Board - Top Level")
+		(title "Silverworm CM5 Motherboard - USB 2.0 Hub")
 		(date "2026-01-27")
 		(company "Copyright © Zak Leek, Imperial College London")
 		(comment 1 "DMT4 - Silerworm, Group 4C")
@@ -1338,7 +1338,7 @@
 	)
 	(text "Zak work out how the clock and power works?? - ask jack or something?"
 		(exclude_from_sim no)
-		(at 118.872 57.404 0)
+		(at 116.332 74.93 0)
 		(effects
 			(font
 				(size 1.27 1.27)
