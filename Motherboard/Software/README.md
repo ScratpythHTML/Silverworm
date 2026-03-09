@@ -1,4 +1,4 @@
-# Motherboard - RPi CM5 - Sftware Setup
+# Motherboard - RPi CM5 - Software Setup
 
 ## How to enable SPI communication
 
@@ -19,3 +19,5 @@ ls /dev/*spi*
 
 9. Expect the Pi to respond with a list of the enabled SPI pins (should be 6 pins on the CM5)
 
+## Found this SPI comms article:
+https://roboticsbackend.com/raspberry-pi-master-arduino-uno-slave-spi-communication-with-wiringpi/
