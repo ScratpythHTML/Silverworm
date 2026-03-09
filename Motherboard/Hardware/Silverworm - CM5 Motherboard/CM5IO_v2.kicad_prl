@@ -1,6 +1,6 @@
 {
   "board": {
-    "active_layer": 25,
+    "active_layer": 9,
     "active_layer_preset": "",
     "auto_track_width": true,
     "hidden_netclasses": [],
@@ -9,13 +9,12 @@
     "net_color_mode": 1,
     "opacity": {
       "images": 0.6,
-      "pads": 0.30000001192092896,
+      "pads": 1.0,
       "shapes": 1.0,
       "tracks": 1.0,
       "vias": 1.0,
-      "zones": 0.49000000953674316
+      "zones": 0.6
     },
-    "ratsnest_display_mode": 1,
     "selection_filter": {
       "dimensions": true,
       "footprints": true,
@@ -32,6 +31,7 @@
     "visible_items": [
       "footprint_text",
       "footprint_anchors",
+      "ratsnest",
       "grid",
       "footprints_front",
       "footprints_back",
@@ -44,19 +44,21 @@
       "pads",
       "zones",
       "drc_warnings",
+      "drc_exclusions",
+      "locked_item_shadows",
+      "conflict_shadows",
       "shapes"
     ],
-    "visible_layers": "00000000_00000000_0000bfe0_820000aa",
+    "visible_layers": "ffffffff_ffffffff_ffffffff_ffff55a8",
     "zone_display_mode": 0
   },
   "git": {
-    "repo_password": "",
     "repo_type": "",
     "repo_username": "",
     "ssh_key": ""
   },
   "meta": {
-    "filename": "CM5IO.kicad_prl",
+    "filename": "CM5IO_v2.kicad_prl",
     "version": 5
   },
   "net_inspector_panel": {
@@ -90,17 +92,17 @@
     ],
     "col_widths": [
       294,
-      280,
-      174,
+      279,
+      173,
       120,
-      174,
-      174,
-      174,
+      173,
+      173,
+      173,
       126,
-      174,
-      174,
-      174,
-      174
+      173,
+      173,
+      173,
+      173
     ],
     "custom_group_rules": [],
     "expanded_rows": [],
