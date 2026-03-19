@@ -21,3 +21,7 @@ ls /dev/*spi*
 
 ## Found this SPI comms article:
 https://roboticsbackend.com/raspberry-pi-master-arduino-uno-slave-spi-communication-with-wiringpi/
+
+
+## Protocol description:
+<img width="1767" height="1136" alt="image" src="https://github.com/user-attachments/assets/a8638710-c120-4e9f-a581-9d027e585755" />

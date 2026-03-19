@@ -32,5 +32,3 @@ So as soon as the RPi receives `AS0`, it sets the program to manual, regardless 
 ### For the ON/OFF switch:
 The ESP sends a simple command `TP` which toggles the machine between the ON and OFF state.
 The RPi sends `ON` or `OFF` to the ESP32 when it the machine starts and stops, so that the ESP can cotnrol the status light inside the power button.
-
-<img width="1767" height="1136" alt="image" src="https://github.com/user-attachments/assets/a8638710-c120-4e9f-a581-9d027e585755" />
