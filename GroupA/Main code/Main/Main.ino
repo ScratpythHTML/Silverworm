@@ -160,9 +160,12 @@ void loop() {
   motor.setSpeed((int)targetPWM);
 
   // send speed via spi
-  int speed = (int)currentSpeed;
-  setReply('1', speed & 0xFF, (speed >> 8) & 0xFF, 3);
-
+  unsigned long now = millis();
+  if (now - lastSpeedReportMs >= SPEED_REPORT_INTERVAL_MS) {
+    lastSpeedReportMs = now;
+    int speed = (int)currentSpeed;
+    setReply('1', speed & 0xFF, (speed >> 8) & 0xFF, 3);
+  }
 
   //output time current speed and target speed
   Serial.print(millis());
