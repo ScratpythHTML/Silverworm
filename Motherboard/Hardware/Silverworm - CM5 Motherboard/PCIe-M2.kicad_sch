@@ -5,10 +5,11 @@
 	(uuid "1354903a-b7d2-4e04-b220-6c6c8f058ef7")
 	(paper "A4")
 	(title_block
-		(title "Compute Module 5 IO Board - M2 Socket")
+		(title "Compute Module 5 IO Board - Top Level")
+		(date "2026-01-27")
 		(rev "1")
-		(company "Copyright © 2024 Raspberry Pi Ltd.")
-		(comment 1 "www.raspberrypi.com")
+		(company "Copyright © Zak Leek, Imperial College London")
+		(comment 1 "DMT4 - Silerworm, Group 4C")
 	)
 	(lib_symbols
 		(symbol "CM5IO:AP3441SHE-7B"
@@ -4198,10 +4199,10 @@
 		(lib_id "Device:LED")
 		(at 201.93 68.58 90)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "04dedc07-8588-4675-a3af-604477889888")
 		(property "Reference" "D3"
 			(at 204.9018 67.5894 90)
@@ -4321,10 +4322,10 @@
 		(lib_id "Device:C")
 		(at 152.4 172.72 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "05ac92f4-afc5-4889-acdd-9cddeba0376e")
 		(property "Reference" "C16"
 			(at 155.321 171.5516 0)
@@ -4444,12 +4445,12 @@
 		(lib_id "power:GND")
 		(at 152.4 177.8 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "0b4708b7-9fb6-4972-962c-1018b6427c2f")
-		(property "Reference" "#PWR018"
+		(property "Reference" "#PWR063"
 			(at 152.4 184.15 0)
 			(effects
 				(font
@@ -4499,7 +4500,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR018")
+					(reference "#PWR063")
 					(unit 1)
 				)
 			)
@@ -4509,12 +4510,12 @@
 		(lib_id "Device:C")
 		(at 46.99 171.45 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "0be8a27b-1e10-4c67-a0ee-02dc30ff42ad")
-		(property "Reference" "C6"
+		(property "Reference" "C11"
 			(at 49.911 170.2816 0)
 			(effects
 				(font
@@ -4622,7 +4623,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "C6")
+					(reference "C11")
 					(unit 1)
 				)
 			)
@@ -4632,12 +4633,12 @@
 		(lib_id "Connector:TestPoint")
 		(at 208.28 74.93 270)
 		(unit 1)
-		(exclude_from_sim no)
+		(exclude_from_sim yes)
 		(in_bom no)
-		(on_board yes)
+		(on_board no)
 		(dnp yes)
 		(uuid "0d6db532-f0dd-4c0d-bf0a-0aec728b6d4b")
-		(property "Reference" "TP1"
+		(property "Reference" "TP5"
 			(at 209.55 78.74 90)
 			(effects
 				(font
@@ -4733,7 +4734,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "TP1")
+					(reference "TP5")
 					(unit 1)
 				)
 			)
@@ -4743,12 +4744,12 @@
 		(lib_id "power:GND")
 		(at 46.99 176.53 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "21c74b08-d586-41a4-9db8-b1913e4eb794")
-		(property "Reference" "#PWR021"
+		(property "Reference" "#PWR053"
 			(at 46.99 182.88 0)
 			(effects
 				(font
@@ -4798,7 +4799,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR021")
+					(reference "#PWR053")
 					(unit 1)
 				)
 			)
@@ -4808,12 +4809,12 @@
 		(lib_id "power:GND")
 		(at 140.97 129.54 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "2c75d540-dfc9-477c-a6dc-ea2045f017c5")
-		(property "Reference" "#PWR019"
+		(property "Reference" "#PWR061"
 			(at 140.97 135.89 0)
 			(effects
 				(font
@@ -4863,7 +4864,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR019")
+					(reference "#PWR061")
 					(unit 1)
 				)
 			)
@@ -4873,12 +4874,12 @@
 		(lib_id "power:GND")
 		(at 162.56 177.8 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "2e87f8fd-e101-4355-8908-1829e4161471")
-		(property "Reference" "#PWR024"
+		(property "Reference" "#PWR064"
 			(at 162.56 184.15 0)
 			(effects
 				(font
@@ -4928,7 +4929,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR024")
+					(reference "#PWR064")
 					(unit 1)
 				)
 			)
@@ -4938,12 +4939,12 @@
 		(lib_id "Device:R")
 		(at 201.93 82.55 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "33ced925-5051-4ed7-9375-b3264bb2d4b3")
-		(property "Reference" "R17"
+		(property "Reference" "R23"
 			(at 203.708 81.3816 0)
 			(effects
 				(font
@@ -5051,7 +5052,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "R17")
+					(reference "R23")
 					(unit 1)
 				)
 			)
@@ -5062,9 +5063,9 @@
 		(at 257.81 113.03 0)
 		(unit 1)
 		(exclude_from_sim yes)
-		(in_bom yes)
+		(in_bom no)
 		(on_board no)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "3904783f-0d7f-4793-8eb1-9fe3ee2d6303")
 		(property "Reference" "M3"
@@ -5134,10 +5135,10 @@
 		(lib_id "Device:L")
 		(at 101.6 167.64 90)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "3afee53c-6d83-4ee8-a733-62dddd2ea052")
 		(property "Reference" "L1"
 			(at 101.6 162.814 90)
@@ -5237,12 +5238,12 @@
 		(lib_id "power:GND")
 		(at 64.77 176.53 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "3de3eb26-9d47-4a7a-8934-99d717f7d96f")
-		(property "Reference" "#PWR022"
+		(property "Reference" "#PWR055"
 			(at 64.77 182.88 0)
 			(effects
 				(font
@@ -5292,7 +5293,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR022")
+					(reference "#PWR055")
 					(unit 1)
 				)
 			)
@@ -5302,12 +5303,12 @@
 		(lib_id "Device:R")
 		(at 119.38 171.45 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "3f72e399-75a8-4c43-bd63-30d4315362cc")
-		(property "Reference" "R15"
+		(property "Reference" "R21"
 			(at 121.158 170.2816 0)
 			(effects
 				(font
@@ -5406,7 +5407,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "R15")
+					(reference "R21")
 					(unit 1)
 				)
 			)
@@ -5416,12 +5417,12 @@
 		(lib_id "Device:C")
 		(at 233.68 139.7 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "49cfd4a6-e2a1-4e07-9096-0f3542c131a8")
-		(property "Reference" "C19"
+		(property "Reference" "C18"
 			(at 236.601 138.5316 0)
 			(effects
 				(font
@@ -5529,7 +5530,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "C19")
+					(reference "C18")
 					(unit 1)
 				)
 			)
@@ -5539,12 +5540,12 @@
 		(lib_id "Device:R")
 		(at 88.9 173.99 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "5175732d-f2ae-476a-b259-4f2485b2f1ef")
-		(property "Reference" "R14"
+		(property "Reference" "R20"
 			(at 90.17 175.895 0)
 			(effects
 				(font
@@ -5652,7 +5653,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "R14")
+					(reference "R20")
 					(unit 1)
 				)
 			)
@@ -5662,12 +5663,12 @@
 		(lib_id "Device:R")
 		(at 119.38 180.34 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "518da8b8-8528-40ea-8092-65cf642145c5")
-		(property "Reference" "R16"
+		(property "Reference" "R22"
 			(at 121.158 179.1716 0)
 			(effects
 				(font
@@ -5757,7 +5758,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "R16")
+					(reference "R22")
 					(unit 1)
 				)
 			)
@@ -5767,10 +5768,10 @@
 		(lib_id "CM5IO:ASEK-32.768KHZ-L-R-T")
 		(at 215.9 129.54 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "52312e93-13e5-46ce-8d2f-9f8d631041e0")
 		(property "Reference" "U7"
@@ -5877,12 +5878,12 @@
 		(lib_id "Device:C")
 		(at 38.1 171.45 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "59eb5aa6-7ca6-4f1b-b057-0d4de79fcc06")
-		(property "Reference" "C4"
+		(property "Reference" "C10"
 			(at 41.021 170.2816 0)
 			(effects
 				(font
@@ -5990,7 +5991,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "C4")
+					(reference "C10")
 					(unit 1)
 				)
 			)
@@ -6000,13 +6001,13 @@
 		(lib_id "CM5IO:AP3441SHE-7B")
 		(at 73.66 167.64 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "5c664c96-7c36-411e-8bbd-30cfb6a7d05b")
-		(property "Reference" "U8"
+		(property "Reference" "U6"
 			(at 73.66 156.21 0)
 			(effects
 				(font
@@ -6115,7 +6116,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "U8")
+					(reference "U6")
 					(unit 1)
 				)
 			)
@@ -6125,12 +6126,12 @@
 		(lib_id "Device:C")
 		(at 55.88 171.45 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "5dfa2014-f34d-44be-9162-e0ecc482a5f0")
-		(property "Reference" "C10"
+		(property "Reference" "C12"
 			(at 58.801 170.2816 0)
 			(effects
 				(font
@@ -6238,7 +6239,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "C10")
+					(reference "C12")
 					(unit 1)
 				)
 			)
@@ -6248,10 +6249,10 @@
 		(lib_id "Device:C")
 		(at 132.08 172.72 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "604c2dfc-65d0-41e3-9107-da96cfdf155b")
 		(property "Reference" "C14"
 			(at 135.001 171.5516 0)
@@ -6371,12 +6372,12 @@
 		(lib_id "power:GND")
 		(at 38.1 176.53 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "6b3f6bf9-344c-419c-87d3-8db521a30ec1")
-		(property "Reference" "#PWR020"
+		(property "Reference" "#PWR052"
 			(at 38.1 182.88 0)
 			(effects
 				(font
@@ -6426,7 +6427,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR020")
+					(reference "#PWR052")
 					(unit 1)
 				)
 			)
@@ -6436,12 +6437,12 @@
 		(lib_id "power:GND")
 		(at 88.9 177.8 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "85ced207-2b07-4443-87f5-a514239878a2")
-		(property "Reference" "#PWR08"
+		(property "Reference" "#PWR058"
 			(at 88.9 184.15 0)
 			(effects
 				(font
@@ -6491,7 +6492,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR08")
+					(reference "#PWR058")
 					(unit 1)
 				)
 			)
@@ -6501,12 +6502,12 @@
 		(lib_id "power:GND")
 		(at 119.38 184.15 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "89cc5f26-0360-4e40-b310-5b83f3cfe896")
-		(property "Reference" "#PWR016"
+		(property "Reference" "#PWR059"
 			(at 119.38 190.5 0)
 			(effects
 				(font
@@ -6556,7 +6557,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR016")
+					(reference "#PWR059")
 					(unit 1)
 				)
 			)
@@ -6566,13 +6567,13 @@
 		(lib_id "CM5IO:M.2_Screw")
 		(at 260.35 142.24 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
+		(exclude_from_sim yes)
+		(in_bom no)
 		(on_board no)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "91a6e385-8577-49eb-b867-1861d45af64f")
-		(property "Reference" "M1"
+		(property "Reference" "M5"
 			(at 267.97 140.9699 0)
 			(effects
 				(font
@@ -6629,7 +6630,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "M1")
+					(reference "M5")
 					(unit 1)
 				)
 			)
@@ -6639,12 +6640,12 @@
 		(lib_id "power:GND")
 		(at 83.82 177.8 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "941776e4-7428-4368-abee-207de271bd46")
-		(property "Reference" "#PWR023"
+		(property "Reference" "#PWR057"
 			(at 83.82 184.15 0)
 			(effects
 				(font
@@ -6694,7 +6695,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR023")
+					(reference "#PWR057")
 					(unit 1)
 				)
 			)
@@ -6704,12 +6705,12 @@
 		(lib_id "Device:C")
 		(at 109.22 171.45 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "96e70b84-5816-4e46-b34d-08055049da47")
-		(property "Reference" "C11"
+		(property "Reference" "C13"
 			(at 112.141 170.2816 0)
 			(effects
 				(font
@@ -6772,7 +6773,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "C11")
+					(reference "C13")
 					(unit 1)
 				)
 			)
@@ -6783,12 +6784,12 @@
 		(at 257.81 100.33 0)
 		(unit 1)
 		(exclude_from_sim yes)
-		(in_bom yes)
+		(in_bom no)
 		(on_board no)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "9cb03503-7593-4624-99a4-78d3c087fff9")
-		(property "Reference" "M4"
+		(property "Reference" "M2"
 			(at 262.89 99.0599 0)
 			(effects
 				(font
@@ -6845,7 +6846,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "M4")
+					(reference "M2")
 					(unit 1)
 				)
 			)
@@ -6855,12 +6856,12 @@
 		(lib_id "power:GND")
 		(at 142.24 177.8 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "ba4363bc-6240-45c0-9e50-bd531b9c58d5")
-		(property "Reference" "#PWR015"
+		(property "Reference" "#PWR062"
 			(at 142.24 184.15 0)
 			(effects
 				(font
@@ -6910,7 +6911,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR015")
+					(reference "#PWR062")
 					(unit 1)
 				)
 			)
@@ -6921,12 +6922,12 @@
 		(at 257.81 87.63 0)
 		(unit 1)
 		(exclude_from_sim yes)
-		(in_bom yes)
+		(in_bom no)
 		(on_board no)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "be9d4b43-843e-4249-a36f-5a0db4337599")
-		(property "Reference" "M5"
+		(property "Reference" "M1"
 			(at 262.89 86.3599 0)
 			(effects
 				(font
@@ -6983,7 +6984,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "M5")
+					(reference "M1")
 					(unit 1)
 				)
 			)
@@ -6993,12 +6994,12 @@
 		(lib_id "power:GND")
 		(at 74.93 173.99 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "c152f6ff-c78e-4aa6-88d9-e9f11f3334a3")
-		(property "Reference" "#PWR028"
+		(property "Reference" "#PWR056"
 			(at 74.93 180.34 0)
 			(effects
 				(font
@@ -7048,7 +7049,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR028")
+					(reference "#PWR056")
 					(unit 1)
 				)
 			)
@@ -7058,10 +7059,10 @@
 		(lib_id "Device:C")
 		(at 142.24 172.72 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "c75569f8-e083-4852-bdc3-f66c84061f35")
 		(property "Reference" "C15"
 			(at 145.161 171.5516 0)
@@ -7181,12 +7182,12 @@
 		(lib_id "power:GND")
 		(at 233.68 143.51 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "cbd6bbea-b0a5-47c4-9878-cef42d28181f")
-		(property "Reference" "#PWR025"
+		(property "Reference" "#PWR066"
 			(at 233.68 149.86 0)
 			(effects
 				(font
@@ -7236,7 +7237,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR025")
+					(reference "#PWR066")
 					(unit 1)
 				)
 			)
@@ -7246,12 +7247,12 @@
 		(lib_id "CM5IO:Bus_M.2_Socket_M")
 		(at 161.29 80.01 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "d23f5dbc-759a-43d4-bd39-1b05cee6022e")
-		(property "Reference" "J4"
+		(property "Reference" "J19"
 			(at 138.684 32.512 0)
 			(effects
 				(font
@@ -7554,7 +7555,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "J4")
+					(reference "J19")
 					(unit 1)
 				)
 			)
@@ -7564,12 +7565,12 @@
 		(lib_id "power:GND")
 		(at 55.88 176.53 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "d62198dc-a4f4-46c2-b169-cf11dd39d658")
-		(property "Reference" "#PWR014"
+		(property "Reference" "#PWR054"
 			(at 55.88 182.88 0)
 			(effects
 				(font
@@ -7619,7 +7620,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR014")
+					(reference "#PWR054")
 					(unit 1)
 				)
 			)
@@ -7630,12 +7631,12 @@
 		(at 257.81 125.73 0)
 		(unit 1)
 		(exclude_from_sim yes)
-		(in_bom yes)
+		(in_bom no)
 		(on_board no)
-		(dnp no)
+		(dnp yes)
 		(fields_autoplaced yes)
 		(uuid "d724fbc1-c3ee-40a2-95fb-70b7601b787f")
-		(property "Reference" "M2"
+		(property "Reference" "M4"
 			(at 262.89 124.4599 0)
 			(effects
 				(font
@@ -7692,7 +7693,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "M2")
+					(reference "M4")
 					(unit 1)
 				)
 			)
@@ -7702,10 +7703,10 @@
 		(lib_id "Device:C")
 		(at 162.56 172.72 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "e09bbf7f-fc97-4ba3-a424-8e5e7046c73f")
 		(property "Reference" "C17"
 			(at 165.481 171.5516 0)
@@ -7825,12 +7826,12 @@
 		(lib_id "power:GND")
 		(at 203.2 135.89 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "e5872d9c-a1dc-4943-ac40-9705a1501b75")
-		(property "Reference" "#PWR026"
+		(property "Reference" "#PWR065"
 			(at 203.2 142.24 0)
 			(effects
 				(font
@@ -7880,7 +7881,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR026")
+					(reference "#PWR065")
 					(unit 1)
 				)
 			)
@@ -7890,12 +7891,12 @@
 		(lib_id "power:GND")
 		(at 132.08 177.8 0)
 		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
+		(exclude_from_sim yes)
+		(in_bom no)
+		(on_board no)
+		(dnp yes)
 		(uuid "ef957b89-d502-4c1e-86b6-6c81a6f0d72a")
-		(property "Reference" "#PWR017"
+		(property "Reference" "#PWR060"
 			(at 132.08 184.15 0)
 			(effects
 				(font
@@ -7945,7 +7946,7 @@
 		(instances
 			(project "CM5IO"
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/00000000-0000-0000-0000-00005ed4bb5b"
-					(reference "#PWR017")
+					(reference "#PWR060")
 					(unit 1)
 				)
 			)
