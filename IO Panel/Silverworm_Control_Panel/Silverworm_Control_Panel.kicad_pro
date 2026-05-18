@@ -48,7 +48,7 @@
         "silk_text_thickness": 0.1,
         "silk_text_upright": false,
         "zones": {
-          "min_clearance": 0.5
+          "min_clearance": 0.0
         }
       },
       "diff_pair_dimensions": [
@@ -482,8 +482,8 @@
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": 2147483647,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.2,
-        "via_diameter": 0.6,
+        "track_width": 0.5,
+        "via_diameter": 1.0,
         "via_drill": 0.3,
         "wire_width": 6
       },
@@ -497,7 +497,7 @@
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": 0,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 1.0,
+        "track_width": 1.5,
         "via_diameter": 1.0,
         "via_drill": 0.3
       }
@@ -513,6 +513,14 @@
       {
         "netclass": "5V",
         "pattern": "/5V0"
+      },
+      {
+        "netclass": "Default",
+        "pattern": ""
+      },
+      {
+        "netclass": "Default",
+        "pattern": "/TOGGLE"
       }
     ]
   },
@@ -521,8 +529,8 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "",
-      "pos_files": "",
+      "plot": "./",
+      "pos_files": "./",
       "specctra_dsn": "",
       "step": "../../../../../../Imperial College London/DMT 4C Team - ME - General/CAD/UI Panel/UI_Panel_PCB_CAD_v2.step",
       "svg": "",
@@ -532,7 +540,7 @@
   },
   "schematic": {
     "annotate_start_num": 0,
-    "bom_export_filename": "C:\\Users\\zakle\\Imperial College London\\DMT 4C Team - ME - General\\Procurement\\Electronics BOMs\\Silverworm_Control_Panel_BOM.csv",
+    "bom_export_filename": "Silverworm_Control_Panel.csv",
     "bom_fmt_presets": [],
     "bom_fmt_settings": {
       "field_delimiter": ",",
