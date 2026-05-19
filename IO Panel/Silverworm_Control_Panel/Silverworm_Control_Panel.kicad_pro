@@ -471,7 +471,7 @@
     "classes": [
       {
         "bus_width": 12,
-        "clearance": 0.2,
+        "clearance": 0.3,
         "diff_pair_gap": 0.25,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
@@ -482,7 +482,7 @@
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": 2147483647,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.5,
+        "track_width": 0.8,
         "via_diameter": 1.0,
         "via_drill": 0.3,
         "wire_width": 6
@@ -529,8 +529,8 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "./",
-      "pos_files": "./",
+      "plot": "C:/Users/zakle/Imperial College London/DMT 4C Team - ME - General/Manufacture/PCBs/Control Panel Final/",
+      "pos_files": "C:/Users/zakle/Imperial College London/DMT 4C Team - ME - General/Manufacture/PCBs/Control Panel Final/Assembly Files/",
       "specctra_dsn": "",
       "step": "../../../../../../Imperial College London/DMT 4C Team - ME - General/CAD/UI Panel/UI_Panel_PCB_CAD_v2.step",
       "svg": "",
