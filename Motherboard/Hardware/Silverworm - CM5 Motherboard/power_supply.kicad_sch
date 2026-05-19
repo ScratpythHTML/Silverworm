@@ -2910,7 +2910,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "0fc3966d-9d2f-4a05-85c7-5c3825828797")
-		(property "Reference" "#PWR074"
+		(property "Reference" "#PWR073"
 			(at 129.54 119.38 0)
 			(effects
 				(font
@@ -2960,7 +2960,7 @@
 		(instances
 			(project ""
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/95be1478-6e3a-4dac-ad6d-2e684e4369ea"
-					(reference "#PWR074")
+					(reference "#PWR073")
 					(unit 1)
 				)
 			)
@@ -2976,7 +2976,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "35dea202-f01e-48cd-b15b-165dd79e416e")
-		(property "Reference" "#PWR073"
+		(property "Reference" "#PWR074"
 			(at 154.94 63.5 0)
 			(effects
 				(font
@@ -3027,7 +3027,7 @@
 		(instances
 			(project ""
 				(path "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55/95be1478-6e3a-4dac-ad6d-2e684e4369ea"
-					(reference "#PWR073")
+					(reference "#PWR074")
 					(unit 1)
 				)
 			)
@@ -3060,7 +3060,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "JLCPCB-Footprints:CAP-SMD_BD6.3-L6.6-W6.6-LS7.3-FD"
+		(property "Footprint" "Capacitor_SMD:CP_Elec_6.3x7.7"
 			(at 33.02 71.12 0)
 			(effects
 				(font
@@ -3601,7 +3601,7 @@
 				)
 			)
 		)
-		(property "Footprint" "JLCPCB-Footprints:SOIC-8_L5.0-W4.0-P1.27-LS6.0-BL-EP2.0"
+		(property "Footprint" "TPS54560DDAR:SOIC127P600X170-9N"
 			(at 77.47 73.66 0)
 			(effects
 				(font

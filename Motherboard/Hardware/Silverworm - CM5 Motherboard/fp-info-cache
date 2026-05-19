@@ -1,4 +1,11 @@
-27490215037997724
+27518562027933713
+200MSP1T1B2M2QE
+HDRV3W51P470X254_1X3_813X508X2100P
+200MSP1T1B2M2QE
+Switch
+0
+3
+3
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -2821,6 +2828,13 @@ speaker CUI
 2
 2
 CM5IO
+57876171
+5787617-1
+Connector
+0
+12
+12
+CM5IO
 BatteryHolder_Keystone_3034_1x20mm
 Keystone 3034 SMD battery holder for 2020, 2025 and 2032 coincell batteries. http://www.keyelco.com/product-pdf.cfm?p=798
 Keystone type 3034 coin cell retainer
@@ -2869,6 +2883,13 @@ mounting hole 2.7mm no annular m2.5 din965
 0
 0
 0
+CM5IO
+QFN50P500X500X80-29N-D
+28-pin QFN (5 × 5 × 0.8 mm)
+Integrated Circuit
+0
+29
+29
 CM5IO
 Raspberry-Pi-5-Compute-Module
 Raspberry Pi 5 Compute Module
@@ -65498,6 +65519,34 @@ heatsink
 0
 0
 0
+Imports
+57876171
+5787617-1
+Connector
+0
+12
+12
+Imports
+NE555DR
+D (R-PDSO-G8)
+Integrated Circuit
+0
+8
+8
+Imports
+QFN50P500X500X80-29N-D
+28-pin QFN (5 × 5 × 0.8 mm)
+Integrated Circuit
+0
+29
+29
+Inductor_SMD
+ETQP5M_YFM
+ETQP5M_YFM
+Inductor
+0
+2
+2
 Inductor_SMD
 L_6.3x6.3_H3
 Choke, SMD, 6.3x6.3mm 3mm height
@@ -73443,6 +73492,20 @@ Yellow 5381 Series LED
 0
 2
 2
+MP008267_LED
+MP008267
+MP008267-1
+LED
+0
+4
+4
+MP008267_LED
+MP008267 zl edit
+MP008267-1
+LED
+0
+4
+4
 Module
 A20_OLINUXINO_LIME2
 A20 Olinuxino LIME2, 1.2GHz, 512-1024MB RAM, Micro-SD, NAND or eMMC, 1000Mbit Ethernet
@@ -77587,6 +77650,13 @@ DIL DIP PDIP 2.54mm 7.62mm 300mil
 0
 4
 4
+PEC11R-4220K-S0024
+PEC11R4220KS0024
+PEC11R-4220K-S0024‎-1
+Hardware
+0
+7
+7
 Package_BGA
 Alliance_TFBGA-36_6x8mm_Layout6x8_P0.75mm
 Alliance TFBGA-36, NSMD, 6.0x8.0mm, 36 Ball, 6x8 Layout, 0.75mm Pitch, generated with kicad-footprint-generator ipc_bga_generator.py, https://www.alliancememory.com/wp-content/uploads/pdf/AS6C1008_Mar_2023V1.2.pdf#page=13
@@ -102185,6 +102255,13 @@ Logo WEEE
 0
 0
 0
+TPS54560DDAR
+SOIC127P600X170-9N
+DDA (R-PDSO-G8)-
+Integrated Circuit
+0
+9
+9
 TerminalBlock
 TerminalBlock_Altech_AK300-2_P5.00mm
 Altech AK300 terminal block, pitch 5.0mm, 45 degree angled, see http://www.mouser.com/ds/2/16/PCBMETRC-24178.pdf
@@ -107624,6 +107701,27 @@ test point THT pad
 0
 1
 1
+Ti_TPS54531DDAR
+DDA8_3P1X2P4_TEX
+
+TPS54531DDAR 
+0
+9
+9
+Ti_TPS54531DDAR
+DDA8_3P1X2P4_TEX-L
+
+TPS54531DDAR 
+0
+9
+9
+Ti_TPS54531DDAR
+DDA8_3P1X2P4_TEX-M
+
+TPS54531DDAR 
+0
+9
+9
 Transformer_SMD
 Pulse_P0926NL
 SMT Gate Drive Transformer, 1:1:1, 8.0x6.3x5.3mm (https://productfinder.pulseeng.com/products/datasheets/SPM2007_61.pdf)
@@ -109248,3 +109346,17 @@ Varistor VF
 0
 2
 2
+megafit_2
+CONN_2002412000_02_MOL
+
+2002411212 
+0
+2
+2
+molex_usb
+CONN_48204-0001_MOL
+
+482040001 
+0
+4
+4
