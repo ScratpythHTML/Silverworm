@@ -17,6 +17,6 @@ R6,10K,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,146.0875,-169.5,180.0,top
 R7,10K,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,154.0875,-165.0,180.0,top
 R8,10K,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,154.0875,-169.5,180.0,top
 R9,100,R_0805_2012Metric_Pad1.20x1.40mm_HandSolder,166.0,-139.0,0.0,top
-TP1,5V0 Testpoint,TestPoint_THTPad_D2.5mm_Drill1.2mm,146.0,-243.0,0.0,top
-TP2,GND Testpoint,TestPoint_Pad_D3.0mm,160.0,-243.0,0.0,top
+TP1,5V0 Testpoint,TestPoint_THTPad_D2.5mm_Drill1.2mm,163.0,-238.0,0.0,top
+TP2,GND Testpoint,TestPoint_Pad_D3.0mm,163.0,-249.0,0.0,top
 TP3,3V3 Testpoint,TestPoint_THTPad_D2.5mm_Drill1.2mm,154.0,-196.0,0.0,top
