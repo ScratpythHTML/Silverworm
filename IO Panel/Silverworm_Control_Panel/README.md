@@ -1,3 +1,5 @@
+# UI Panel Pinout
+
 # UI Panel Communications Protocol:
 
 Uses I2C for communications between the ESP32 and the RPi
