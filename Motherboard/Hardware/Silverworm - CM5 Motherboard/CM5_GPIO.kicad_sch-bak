@@ -22586,7 +22586,7 @@
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
-		(on_board no)
+		(on_board yes)
 		(dnp yes)
 		(uuid "f6c3817e-cffb-400d-95dc-fec8b67fb2a2")
 		(property "Reference" "TP2"

@@ -1,4 +1,4 @@
-27518562027933713
+27522120517752795
 200MSP1T1B2M2QE
 HDRV3W51P470X254_1X3_813X508X2100P
 200MSP1T1B2M2QE
@@ -6,6 +6,13 @@ Switch
 0
 3
 3
+Amphenol 10164227-1001A1RLF
+101642271001A1RLF
+10164227-1001A1RLF-1
+Connector
+0
+100
+100
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -2911,6 +2918,13 @@ RJ45 Magjack
 0
 20
 20
+CM5IO
+Untitled
+
+
+0
+0
+0
 Calibration_Scale
 Gauge_10mm_Type1_CopperTop
 Gauge, Massstab, 10mm, CopperTop, Type 1,
