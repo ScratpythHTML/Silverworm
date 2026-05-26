@@ -2,8 +2,8 @@
 
 // Define pins
 
-#define INA 2 // drives motor clcokwise when high, pin 2 Brown wire
-#define INB 4 // drives motor counter - clockwise when high, pin 4 orange wire 
+#define INA 4 // drives motor clcokwise when high, pin 2 Brown wire
+#define INB 2 // drives motor counter - clockwise when high, pin 4 orange wire 
 #define PWM 3 // output the pwm to pin 3 Yellow wire
 #define HALL 5 // Hall effect sensor input pin 5
 
