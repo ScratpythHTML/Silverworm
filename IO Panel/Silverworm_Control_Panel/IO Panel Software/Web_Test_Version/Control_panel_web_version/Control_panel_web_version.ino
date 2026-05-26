@@ -1,0 +1,724 @@
+#include <Wire.h>
+#include <ArduinoJson.h>
+
+// I2C Configuration
+const uint8_t I2C_SLAVE_ADDR = 0x55;
+const int I2C_SDA = 8;
+const int I2C_SCL = 22;
+
+// State variables - Dials
+int encoderMode[2] = {0, 0}; // 0=large/green, 1=medium/yellow, 2=small/red
+
+// Power LED status
+bool powerLEDStatus = false;
+
+// I2C command queue
+char commandBuffer[32] = "";
+int commandBufferIndex = 0;
+
+// Colour definitions (RGB values 0-255)
+const uint8_t colourBig[3] = {0, 255, 0};       // Large detent (green)
+const uint8_t colourMedium[3] = {255, 200, 0};  // Medium detent (yellow)
+const uint8_t colourSmall[3] = {255, 0, 0};     // Small detent (red)
+
+// Serial communication buffer
+String serialBuffer = "";
+
+// HTML content (embedded)
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silverworm Control Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .control-panel {
+            width: 100%;
+            max-width: 400px;
+            background: #2d3561;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 3px solid #4a5a8a;
+        }
+
+        .title {
+            text-align: center;
+            color: #00ff00;
+            margin-bottom: 30px;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .connect-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .connect-btn {
+            padding: 12px 30px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .connect-btn:hover {
+            background: #00cc00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+
+        .connect-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .status-bar {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #00ff00;
+            font-size: 12px;
+            text-align: center;
+            border: 1px solid #4a5a8a;
+        }
+
+        .status-bar.connected {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .status-bar.disconnected {
+            border-color: #ff6600;
+            background: rgba(255, 102, 0, 0.1);
+            color: #ff6600;
+        }
+
+        .dial-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            border: 2px solid #4a5a8a;
+        }
+
+        .dial {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #555, #1a1a1a);
+            border: 4px solid #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: grab;
+            touch-action: none;
+            transition: transform 0.1s ease;
+        }
+
+        .dial:active {
+            cursor: grabbing;
+        }
+
+        .dial-center {
+            width: 20px;
+            height: 20px;
+            background: #00ff00;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 10;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .dial-pointer {
+            width: 3px;
+            height: 35px;
+            background: #00ff00;
+            position: absolute;
+            top: 10px;
+            transform-origin: bottom;
+            border-radius: 2px;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+
+        .led-indicator {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #00ff00, #00cc00);
+            border: 3px solid #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .led-indicator:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
+        }
+
+        .dial-label {
+            color: #00ff00;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+            letter-spacing: 1px;
+        }
+
+        .toggle-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            border: 2px solid #4a5a8a;
+        }
+
+        .toggle-button {
+            padding: 12px 30px;
+            margin: 0 10px;
+            border: 2px solid #00ff00;
+            background: transparent;
+            color: #00ff00;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-button.active {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .toggle-button:hover {
+            background: rgba(0, 255, 0, 0.2);
+        }
+
+        .power-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 40px;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            border: 3px solid #4a5a8a;
+        }
+
+        .power-button {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #333, #000);
+            border: 4px solid #444;
+            color: #00ff00;
+            font-size: 48px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .power-button:hover {
+            border-color: #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .power-button:active {
+            transform: scale(0.95);
+        }
+
+        .power-led {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #333;
+            border: 2px solid #444;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .power-led.on {
+            background: radial-gradient(circle at 30% 30%, #00ff00, #00cc00);
+            border-color: #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+        }
+
+        .dial-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .disabled-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 20px;
+            z-index: 100;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #ff6600;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .control-panel.disconnected .disabled-overlay {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel" id="controlPanel">
+        <div class="title">SILVERWORM</div>
+
+        <div class="connect-section">
+            <button class="connect-btn" id="connectBtn" onclick="connectSerial()">Connect to ESP32</button>
+        </div>
+
+        <div class="status-bar disconnected" id="statusBar">Disconnected</div>
+
+        <div class="dial-container">
+            <div class="dial-wrapper">
+                <div class="dial" id="dial1" data-dial="1">
+                    <div class="dial-pointer" id="dial1-pointer"></div>
+                    <div class="dial-center"></div>
+                </div>
+                <div class="dial-label">DIAL 1</div>
+            </div>
+
+            <div class="led-indicator" id="led1" data-dial="1"></div>
+
+            <div class="dial-wrapper">
+                <div class="dial" id="dial2" data-dial="2">
+                    <div class="dial-pointer" id="dial2-pointer"></div>
+                    <div class="dial-center"></div>
+                </div>
+                <div class="dial-label">DIAL 2</div>
+            </div>
+
+            <div class="led-indicator" id="led2" data-dial="2"></div>
+        </div>
+
+        <div class="toggle-container">
+            <button class="toggle-button active" id="manual-btn" data-mode="0">MANUAL</button>
+            <button class="toggle-button" id="auto-btn" data-mode="1">AUTO</button>
+        </div>
+
+        <div class="power-container">
+            <button class="power-button" id="power-btn">①</button>
+            <div class="power-led" id="power-led"></div>
+        </div>
+
+        <div class="disabled-overlay">Connect to begin</div>
+    </div>
+
+    <script>
+        let port = null;
+        let reader = null;
+        let isConnected = false;
+
+        const dialElements = {
+            1: document.getElementById('dial1'),
+            2: document.getElementById('dial2')
+        };
+
+        const ledElements = {
+            1: document.getElementById('led1'),
+            2: document.getElementById('led2')
+        };
+
+        const pointerElements = {
+            1: document.getElementById('dial1-pointer'),
+            2: document.getElementById('dial2-pointer')
+        };
+
+        const modeNames = ['Large', 'Medium', 'Small'];
+        const modeColors = ['#00ff00', '#ffc800', '#ff0000'];
+
+        let dialState = {
+            1: { mode: 0, rotation: 0 },
+            2: { mode: 0, rotation: 0 }
+        };
+
+        let toggleMode = 0;
+        let touchStart = { y: 0, dial: null };
+
+        async function connectSerial() {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+
+                isConnected = true;
+                document.getElementById('connectBtn').disabled = true;
+                updateStatusBar(true);
+                document.getElementById('controlPanel').classList.remove('disconnected');
+
+                readSerialData();
+            } catch (err) {
+                console.error('Connection error:', err);
+                updateStatusBar(false);
+            }
+        }
+
+        function updateStatusBar(connected) {
+            const statusBar = document.getElementById('statusBar');
+            if (connected) {
+                statusBar.textContent = 'Connected to ESP32';
+                statusBar.classList.remove('disconnected');
+                statusBar.classList.add('connected');
+            } else {
+                statusBar.textContent = 'Disconnected';
+                statusBar.classList.remove('connected');
+                statusBar.classList.add('disconnected');
+            }
+        }
+
+        async function readSerialData() {
+            while (port.readable) {
+                reader = port.readable.getReader();
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+
+                        const text = new TextDecoder().decode(value);
+                        processSerialData(text);
+                    }
+                } catch (err) {
+                    console.error('Read error:', err);
+                } finally {
+                    reader.releaseLock();
+                }
+            }
+
+            isConnected = false;
+            document.getElementById('connectBtn').disabled = false;
+            updateStatusBar(false);
+            document.getElementById('controlPanel').classList.add('disconnected');
+        }
+
+        function processSerialData(data) {
+            try {
+                const lines = data.split('\n');
+                lines.forEach(line => {
+                    if (line.trim() && line.startsWith('{')) {
+                        const msg = JSON.parse(line);
+                        handleMessage(msg);
+                    }
+                });
+            } catch (err) {
+                console.error('Parse error:', err);
+            }
+        }
+
+        function handleMessage(msg) {
+            if (msg.type === 'power_led_status') {
+                const powerLed = document.getElementById('power-led');
+                if (msg.state === 'on') {
+                    powerLed.classList.add('on');
+                } else {
+                    powerLed.classList.remove('on');
+                }
+            }
+        }
+
+        async function sendSerialCommand(cmd) {
+            if (!port || !isConnected) return;
+
+            try {
+                const writer = port.writable.getWriter();
+                const data = new TextEncoder().encode(JSON.stringify(cmd) + '\n');
+                await writer.write(data);
+                writer.releaseLock();
+            } catch (err) {
+                console.error('Write error:', err);
+            }
+        }
+
+        // Dial swipe handlers
+        Object.keys(dialElements).forEach(dialNum => {
+            const dial = dialElements[dialNum];
+
+            dial.addEventListener('touchstart', (e) => {
+                touchStart = { y: e.touches[0].clientY, dial: parseInt(dialNum) };
+            });
+
+            dial.addEventListener('touchmove', (e) => {
+                if (!touchStart.dial || touchStart.dial !== parseInt(dialNum)) return;
+                e.preventDefault();
+                const deltaY = e.touches[0].clientY - touchStart.y;
+                handleDialSwipe(parseInt(dialNum), deltaY);
+                touchStart.y = e.touches[0].clientY;
+            });
+
+            dial.addEventListener('mousedown', (e) => {
+                touchStart = { y: e.clientY, dial: parseInt(dialNum) };
+            });
+
+            dial.addEventListener('mousemove', (e) => {
+                if (e.buttons !== 1 || !touchStart.dial || touchStart.dial !== parseInt(dialNum)) return;
+                const deltaY = e.clientY - touchStart.y;
+                handleDialSwipe(parseInt(dialNum), deltaY);
+                touchStart.y = e.clientY;
+            });
+        });
+
+        function handleDialSwipe(dialNum, deltaY) {
+            const minSwipeDistance = 20;
+            if (Math.abs(deltaY) < minSwipeDistance) return;
+
+            const direction = deltaY < 0 ? 'up' : 'down';
+
+            sendSerialCommand({
+                type: 'dial_swipe',
+                dial: dialNum,
+                direction: direction
+            });
+
+            updateDialRotation(dialNum, direction === 'up' ? 1 : -1);
+        }
+
+        function updateDialRotation(dialNum, increment) {
+            dialState[dialNum].rotation += increment * 15;
+            const pointer = pointerElements[dialNum];
+            pointer.style.transform = `rotate(${dialState[dialNum].rotation}deg)`;
+        }
+
+        // LED tap handlers
+        Object.keys(ledElements).forEach(dialNum => {
+            const led = ledElements[dialNum];
+            led.addEventListener('click', () => {
+                const currentMode = dialState[dialNum].mode;
+                dialState[dialNum].mode = (currentMode + 1) % 3;
+                updateLEDDisplay(dialNum);
+
+                sendSerialCommand({
+                    type: 'led_tap',
+                    dial: parseInt(dialNum)
+                });
+            });
+        });
+
+        function updateLEDDisplay(dialNum) {
+            const mode = dialState[dialNum].mode;
+            const ledElement = ledElements[dialNum];
+            const bgColor = modeColors[mode];
+            ledElement.style.background = `radial-gradient(circle at 30% 30%, ${bgColor}, ${adjustBrightness(bgColor, -30)})`;
+            ledElement.style.borderColor = bgColor;
+            ledElement.style.boxShadow = `0 0 20px ${adjustBrightness(bgColor, 20)}`;
+            ledElement.textContent = modeNames[mode];
+        }
+
+        function adjustBrightness(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return '#' + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 +
+                (G<255?G<1?0:G:255)*0x100 +
+                (B<255?B<1?0:B:255))
+                .toString(16).slice(1);
+        }
+
+        // Power button handler
+        document.getElementById('power-btn').addEventListener('click', () => {
+            sendSerialCommand({ type: 'button', button: 'power' });
+        });
+
+        // Toggle buttons
+        document.getElementById('manual-btn').addEventListener('click', () => {
+            toggleMode = 0;
+            document.getElementById('manual-btn').classList.add('active');
+            document.getElementById('auto-btn').classList.remove('active');
+            sendSerialCommand({ type: 'toggle', mode: 'manual' });
+        });
+
+        document.getElementById('auto-btn').addEventListener('click', () => {
+            toggleMode = 1;
+            document.getElementById('auto-btn').classList.add('active');
+            document.getElementById('manual-btn').classList.remove('active');
+            sendSerialCommand({ type: 'toggle', mode: 'auto' });
+        });
+    </script>
+</body>
+</html>
+)rawliteral";
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  // Initialize I2C slave
+  Wire.begin((uint8_t)I2C_SLAVE_ADDR, I2C_SDA, I2C_SCL, 400000);
+  Wire.onReceive(onI2CReceive);
+  Wire.onRequest(onI2CRequest);
+
+  Serial.println("\n\n=== Silverworm Web Serial Control Panel ===");
+  Serial.println("Waiting for serial connection...");
+  Serial.println("Open the HTML interface in Chrome/Edge and click 'Connect to ESP32'");
+}
+
+void loop() {
+  // Handle incoming serial commands
+  if (Serial.available()) {
+    char c = Serial.read();
+
+    if (c == '\n') {
+      if (serialBuffer.length() > 0) {
+        handleSerialCommand(serialBuffer);
+        serialBuffer = "";
+      }
+    } else if (c != '\r') {
+      serialBuffer += c;
+    }
+  }
+
+  delay(5);
+}
+
+void handleSerialCommand(String cmd) {
+  StaticJsonDocument<200> doc;
+  DeserializationError error = deserializeJson(doc, cmd);
+
+  if (error) {
+    Serial.print("{\"error\":\"JSON parse error: ");
+    Serial.print(error.c_str());
+    Serial.println("\"}");
+    return;
+  }
+
+  const char *msgType = doc["type"];
+
+  if (strcmp(msgType, "dial_swipe") == 0) {
+    int dial = doc["dial"];
+    const char *direction = doc["direction"];
+    int increment = getIncrementForMode(encoderMode[dial - 1]);
+
+    char cmdStr[16];
+    if (strcmp(direction, "up") == 0) {
+      sprintf(cmdStr, "D%d+%d", dial, increment);
+    } else {
+      sprintf(cmdStr, "D%d-%d", dial, increment);
+    }
+    sendI2CCommand(cmdStr);
+  }
+  else if (strcmp(msgType, "led_tap") == 0) {
+    int dial = doc["dial"];
+    encoderMode[dial - 1] = (encoderMode[dial - 1] + 1) % 3;
+  }
+  else if (strcmp(msgType, "button") == 0) {
+    const char *button = doc["button"];
+    if (strcmp(button, "power") == 0) {
+      sendI2CCommand("TP");
+    }
+  }
+  else if (strcmp(msgType, "toggle") == 0) {
+    const char *mode = doc["mode"];
+    if (strcmp(mode, "manual") == 0) {
+      sendI2CCommand("AS0");
+    } else if (strcmp(mode, "auto") == 0) {
+      sendI2CCommand("AS1");
+    }
+  }
+}
+
+int getIncrementForMode(int mode) {
+  switch(mode) {
+    case 0: return 3;  // Large detent
+    case 1: return 2;  // Medium detent
+    case 2: return 1;  // Small detent
+    default: return 1;
+  }
+}
+
+// I2C receive handler - receive status from Raspberry Pi
+void onI2CReceive(int len) {
+  if (len >= 2) {
+    char buffer[len + 1];
+    int i = 0;
+    while (Wire.available()) {
+      buffer[i++] = Wire.read();
+    }
+    buffer[i] = '\0';
+
+    // Parse ON/OFF status
+    if (strncmp(buffer, "ON", 2) == 0) {
+      powerLEDStatus = true;
+      Serial.println("{\"type\":\"power_led_status\",\"state\":\"on\"}");
+    } else if (strncmp(buffer, "OFF", 3) == 0) {
+      powerLEDStatus = false;
+      Serial.println("{\"type\":\"power_led_status\",\"state\":\"off\"}");
+    }
+  }
+}
+
+// I2C request handler - send command to Raspberry Pi
+void onI2CRequest() {
+  if (commandBufferIndex > 0) {
+    Wire.write((uint8_t *)commandBuffer, commandBufferIndex);
+    commandBufferIndex = 0;
+    memset(commandBuffer, 0, sizeof(commandBuffer));
+  } else {
+    Wire.write(0);
+  }
+}
+
+// Queue I2C command to be sent to Raspberry Pi when requested
+void sendI2CCommand(const char *cmd) {
+  memset(commandBuffer, 0, sizeof(commandBuffer));
+  strncpy(commandBuffer, cmd, sizeof(commandBuffer) - 2);
+  commandBufferIndex = strlen(commandBuffer) + 1;
+
+  Serial.print("I2C Command: ");
+  Serial.println(cmd);
+}

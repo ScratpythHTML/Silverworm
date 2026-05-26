@@ -1,0 +1,14 @@
+"Id";"Designator";"Footprint";"Quantity";"Designation";"Supplier and ref";
+1;"R7,R6,R3,R5,R2,R8,R4,R1";"R_0805_2012Metric_Pad1.20x1.40mm_HandSolder";8;"10K";;;
+2;"C3,C4,C2,C1";"C_0805_2012Metric_Pad1.18x1.45mm_HandSolder";4;"0.01uF";;;
+3;"H2,H1";"PEC11R4220KS0024";2;"PEC11R-4220K-S0024";;;
+4;"R14,R11,R12,R9";"R_0805_2012Metric_Pad1.20x1.40mm_HandSolder";4;"100";;;
+5;"TP2";"TestPoint_Pad_D3.0mm";1;"GND Testpoint";;;
+6;"R10,R13";"R_0805_2012Metric_Pad1.20x1.40mm_HandSolder";2;"68";;;
+7;"LED2,LED1";"MP008267 zl edit";2;"MP008267 zl edit";;;
+8;"TP3";"TestPoint_THTPad_D2.5mm_Drill1.2mm";1;"3V3 Testpoint";;;
+9;"TP1";"TestPoint_THTPad_D2.5mm_Drill1.2mm";1;"5V0 Testpoint";;;
+10;"SW1";"HDRV3W51P470X254_1X3_813X508X2100P";1;"SW_SPDT";;;
+11;"J2,J3";"PinSocket_1x15_P2.54mm_Vertical";2;"Conn_01x15";;;
+12;"J4,J5";"JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical";2;"JST-XH-2PIN";;;
+13;"J1";"Molex_Micro-Fit_3.0_43045-0621_2x03-1MP_P3.00mm_Horizontal";1;"Microfit 6-pin";;;

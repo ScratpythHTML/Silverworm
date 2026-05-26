@@ -1,0 +1,19 @@
+Designator,Val,Package,Mid X,Mid Y,Rotation,Layer
+C1,0.01uF,CP_EIA-1608-10_AVX-L,130.5,-146,180,top
+C2,0.01uF,CP_EIA-1608-10_AVX-L,140,-123,180,top
+C3,0.01uF,CP_EIA-1608-10_AVX-L,130.5,-151.5,180,top
+C4,0.01uF,CP_EIA-1608-10_AVX-L,130.5,-156.5,180,top
+R1,10K,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,151,-123,180,top
+R2,10K,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,151.0875,-112.5,180,top
+R3,10K,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,145.5,-112.5,0,top
+R4,10K,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,145.5,-123,180,top
+R5,10K,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,146.0875,-165,180,top
+R6,10K,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,146.0875,-169.5,180,top
+R7,10K,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,154.0875,-165,180,top
+R8,10K,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,154.0875,-169.5,180,top
+R9,100,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,166,-139,0,top
+R10,68,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,171.5,-134,180,top
+R11,100,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,159,-130.5,180,top
+R12,100,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,162.5,-90.5,0,top
+R13,68,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,171,-84.5,180,top
+R14,100,R_0603_1608Metric_Pad0.98x0.95mm_HandSolder,159,-80.5,180,top

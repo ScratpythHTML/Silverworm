@@ -1,3 +1,28 @@
+# UI Panel Pinout
+
+| Pin     | Use      | Mode         |
+|---------|----------|--------------|
+| GPIO 0  | LED1-R   | ANALOG OUT   |
+| GPIO 1  | LED1-G   | ANALOG OUT   |
+| GPIO 2  | LED1-B   | ANALOG OUT   |
+| GPIO 3  | TOGGLE   | DIG INPUT    |
+| GPIO 13 | BTN2_LED | NOT USED     |
+| GPIO 14 | BTN_1LED | DIGITAL OUT  |
+| GPIO 4  | BTN2     | NOT USED     |
+| GPIO 5  | BTN1     | INPUT PULLUP |
+| GPIO 24 | DIAL1A   | DIG INPUT    |
+| GPIO 23 | DIAL1B   | DIG INPUT    |
+| GPIO 10 | DIAL1NO  | INPUT PULLUP |
+| GPIO 11 | DIAL2A   | DIG INPUT    |
+| GPIO 25 | DIAL2B   | DIG INPUT    |
+| GPIO 12 | DIAL2NO  | INPUT PULLUP |
+| GPIO 8  | SDA      | SDA          |
+| GPIO 22 | SCL      | SCL          |
+| GPIO 9  | LED2-R   | ANALOG OUT   |
+| GPIO 27 | LED2-G   | ANALOG OUT   |
+| GPIO 26 | LED2-B   | ANALOG OUT   |
+
+
 # UI Panel Communications Protocol:
 
 Uses I2C for communications between the ESP32 and the RPi
