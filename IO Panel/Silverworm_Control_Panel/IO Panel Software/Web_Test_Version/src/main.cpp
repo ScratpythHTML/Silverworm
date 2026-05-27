@@ -16,11 +16,6 @@ bool powerLEDStatus = false;
 char commandBuffer[32] = "";
 int commandBufferIndex = 0;
 
-// Colour definitions (RGB values 0-255)
-const uint8_t colourBig[3] = {0, 255, 0};       // Large detent (green)
-const uint8_t colourMedium[3] = {255, 200, 0};  // Medium detent (yellow)
-const uint8_t colourSmall[3] = {255, 0, 0};     // Small detent (red)
-
 // Serial communication buffer
 String serialBuffer = "";
 
@@ -44,9 +39,11 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             min-height: 100vh;
             padding: 10px;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .control-panel {
@@ -57,6 +54,83 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             padding: 30px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             border: 3px solid #4a5a8a;
+        }
+
+        .i2c-monitor {
+            width: 100%;
+            max-width: 400px;
+            background: #2d3561;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 3px solid #4a5a8a;
+            display: flex;
+            flex-direction: column;
+            max-height: 600px;
+        }
+
+        .i2c-monitor h2 {
+            color: #00ff00;
+            font-size: 16px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .i2c-console {
+            background: #000;
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 10px;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            overflow-y: auto;
+            flex-grow: 1;
+            min-height: 200px;
+            max-height: 500px;
+        }
+
+        .i2c-console-line {
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+        }
+
+        .i2c-console-line.tx {
+            color: #00ff00;
+        }
+
+        .i2c-console-line.rx {
+            color: #ffaa00;
+        }
+
+        .i2c-console-line.status {
+            color: #00aaff;
+        }
+
+        .i2c-console-line.error {
+            color: #ff4444;
+        }
+
+        .i2c-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .i2c-clear-btn {
+            flex: 1;
+            padding: 8px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .i2c-clear-btn:hover {
+            background: #00cc00;
         }
 
         .title {
@@ -141,7 +215,6 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             position: relative;
             cursor: grab;
             touch-action: none;
-            transition: transform 0.1s ease;
         }
 
         .dial:active {
@@ -197,7 +270,6 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             font-weight: bold;
             text-align: center;
             margin-top: 10px;
-            letter-spacing: 1px;
         }
 
         .toggle-container {
@@ -314,6 +386,15 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         .control-panel.disconnected .disabled-overlay {
             display: flex;
         }
+
+        @media (max-width: 1200px) {
+            body {
+                flex-direction: column;
+            }
+            .control-panel, .i2c-monitor {
+                max-width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -361,6 +442,14 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         <div class="disabled-overlay">Connect to begin</div>
     </div>
 
+    <div class="i2c-monitor">
+        <h2>I2C SERIAL MONITOR</h2>
+        <div class="i2c-console" id="i2cConsole"></div>
+        <div class="i2c-controls">
+            <button class="i2c-clear-btn" onclick="clearI2CLog()">Clear Log</button>
+        </div>
+    </div>
+
     <script>
         let port = null;
         let reader = null;
@@ -392,6 +481,21 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         let toggleMode = 0;
         let touchStart = { y: 0, dial: null };
 
+        function logI2C(message, type = 'status') {
+            const console = document.getElementById('i2cConsole');
+            const line = document.createElement('div');
+            line.className = `i2c-console-line ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            line.textContent = `[${timestamp}] ${message}`;
+            console.appendChild(line);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function clearI2CLog() {
+            document.getElementById('i2cConsole').innerHTML = '';
+            logI2C('Log cleared', 'status');
+        }
+
         async function connectSerial() {
             try {
                 port = await navigator.serial.requestPort();
@@ -402,9 +506,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                 updateStatusBar(true);
                 document.getElementById('controlPanel').classList.remove('disconnected');
 
+                logI2C('Connected to ESP32', 'status');
                 readSerialData();
             } catch (err) {
-                console.error('Connection error:', err);
+                logI2C(`Connection error: ${err.message}`, 'error');
                 updateStatusBar(false);
             }
         }
@@ -434,7 +539,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                         processSerialData(text);
                     }
                 } catch (err) {
-                    console.error('Read error:', err);
+                    logI2C(`Read error: ${err.message}`, 'error');
                 } finally {
                     reader.releaseLock();
                 }
@@ -444,15 +549,24 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             document.getElementById('connectBtn').disabled = false;
             updateStatusBar(false);
             document.getElementById('controlPanel').classList.add('disconnected');
+            logI2C('Disconnected from ESP32', 'status');
         }
 
         function processSerialData(data) {
             try {
                 const lines = data.split('\n');
                 lines.forEach(line => {
-                    if (line.trim() && line.startsWith('{')) {
-                        const msg = JSON.parse(line);
-                        handleMessage(msg);
+                    if (line.trim()) {
+                        if (line.startsWith('{')) {
+                            const msg = JSON.parse(line);
+                            handleMessage(msg);
+                        } else if (line.includes('I2C Command:')) {
+                            logI2C(line, 'tx');
+                        } else if (line.includes('power_led_status')) {
+                            logI2C(line, 'rx');
+                        } else {
+                            logI2C(line, 'status');
+                        }
                     }
                 });
             } catch (err) {
@@ -468,6 +582,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                 } else {
                     powerLed.classList.remove('on');
                 }
+                logI2C(`RX: Power LED ${msg.state.toUpperCase()}`, 'rx');
             }
         }
 
@@ -480,11 +595,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                 await writer.write(data);
                 writer.releaseLock();
             } catch (err) {
-                console.error('Write error:', err);
+                logI2C(`Write error: ${err.message}`, 'error');
             }
         }
 
-        // Dial swipe handlers
         Object.keys(dialElements).forEach(dialNum => {
             const dial = dialElements[dialNum];
 
@@ -517,6 +631,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             if (Math.abs(deltaY) < minSwipeDistance) return;
 
             const direction = deltaY < 0 ? 'up' : 'down';
+            const increment = getIncrementForMode(dialState[dialNum].mode);
 
             sendSerialCommand({
                 type: 'dial_swipe',
@@ -525,6 +640,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             });
 
             updateDialRotation(dialNum, direction === 'up' ? 1 : -1);
+            logI2C(`TX: Dial ${dialNum} swipe ${direction} (${increment}x)`, 'tx');
         }
 
         function updateDialRotation(dialNum, increment) {
@@ -533,7 +649,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             pointer.style.transform = `rotate(${dialState[dialNum].rotation}deg)`;
         }
 
-        // LED tap handlers
+        function getIncrementForMode(mode) {
+            return [3, 2, 1][mode];
+        }
+
         Object.keys(ledElements).forEach(dialNum => {
             const led = ledElements[dialNum];
             led.addEventListener('click', () => {
@@ -545,6 +664,8 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                     type: 'led_tap',
                     dial: parseInt(dialNum)
                 });
+
+                logI2C(`TX: LED ${dialNum} mode changed to ${modeNames[dialState[dialNum].mode]}`, 'tx');
             });
         });
 
@@ -570,17 +691,17 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
                 .toString(16).slice(1);
         }
 
-        // Power button handler
         document.getElementById('power-btn').addEventListener('click', () => {
             sendSerialCommand({ type: 'button', button: 'power' });
+            logI2C('TX: Power button pressed', 'tx');
         });
 
-        // Toggle buttons
         document.getElementById('manual-btn').addEventListener('click', () => {
             toggleMode = 0;
             document.getElementById('manual-btn').classList.add('active');
             document.getElementById('auto-btn').classList.remove('active');
             sendSerialCommand({ type: 'toggle', mode: 'manual' });
+            logI2C('TX: Manual mode selected', 'tx');
         });
 
         document.getElementById('auto-btn').addEventListener('click', () => {
@@ -588,7 +709,10 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             document.getElementById('auto-btn').classList.add('active');
             document.getElementById('manual-btn').classList.remove('active');
             sendSerialCommand({ type: 'toggle', mode: 'auto' });
+            logI2C('TX: Auto mode selected', 'tx');
         });
+
+        logI2C('Ready to connect', 'status');
     </script>
 </body>
 </html>
@@ -613,6 +737,7 @@ void setup() {
   Serial.println("\n\n=== Silverworm Web Serial Control Panel ===");
   Serial.println("Waiting for serial connection...");
   Serial.println("Open the HTML interface in Chrome/Edge and click 'Connect to ESP32'");
+  Serial.println("I2C Communication initialized at address 0x55");
 }
 
 void loop() {
@@ -696,6 +821,7 @@ void onI2CReceive(int len) {
     }
     buffer[i] = '\0';
 
+    Serial.println(buffer);
     if (strncmp(buffer, "ON", 2) == 0) {
       powerLEDStatus = true;
       Serial.println("{\"type\":\"power_led_status\",\"state\":\"on\"}");
@@ -709,6 +835,7 @@ void onI2CReceive(int len) {
 void onI2CRequest() {
   if (commandBufferIndex > 0) {
     Wire.write((uint8_t *)commandBuffer, commandBufferIndex);
+    Serial.println(commandBuffer);
     commandBufferIndex = 0;
     memset(commandBuffer, 0, sizeof(commandBuffer));
   } else {
@@ -720,7 +847,5 @@ void sendI2CCommand(const char *cmd) {
   memset(commandBuffer, 0, sizeof(commandBuffer));
   strncpy(commandBuffer, cmd, sizeof(commandBuffer) - 2);
   commandBufferIndex = strlen(commandBuffer) + 1;
-
-  Serial.print("I2C Command: ");
   Serial.println(cmd);
 }
