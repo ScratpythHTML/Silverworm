@@ -1,0 +1,22 @@
+# Thread Wrapping Machine Control System - Dependencies
+
+# Core PyQt6
+PyQt6>=6.4.0
+PyQt6-Qt6>=6.4.0
+PyQt6-sip>=13.4.0
+
+# Optional: Enhanced Modern UI Widgets
+# Install with: pip install QT-PyQt-PySide-Custom-Widgets
+QT-PyQt-PySide-Custom-Widgets>=1.0.0
+
+# For building executables
+pyinstaller>=5.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-qt>=4.2.0
+pytest-mock>=3.11.0
+
+# Optional: Advanced charting (if needed later)
+# pyqtgraph>=0.13.0
+# numpy>=1.20.0
