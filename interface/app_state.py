@@ -62,13 +62,13 @@ class Mode(Enum):
 WRAP_SPEED_MIN_RPM = 0.0
 WRAP_SPEED_MAX_RPM = 2000.0
 FEED_SPEED_MIN_MMS = 0.0
-FEED_SPEED_MAX_MMS = 10.0
+FEED_SPEED_MAX_MMS = 20.0
 
 
 # Physical → SPI integer scaling. Confirm with Arduino firmware once
 # the units they expect are pinned down.
-WRAP_RPM_UNITS_PER = 10        # 1 unit = 0.1 RPM  → up to 6553.5 RPM
-FEED_MMS_UNITS_PER = 1000      # 1 unit = 0.001 mm/s → up to 65.535 mm/s
+WRAP_RPM_UNITS_PER = 1         # 1 unit = 1 RPM (Arduino expects raw RPM)
+FEED_MMS_UNITS_PER = 1         # 1 unit = 1 mm/s (Arduino expects raw mm/s)
 
 
 def _scale_to_units(value: float, units_per: int) -> int:

@@ -102,6 +102,79 @@ except Exception as e:
 
 print()
 
+# SPI diagnostic
+print("SPI diagnostic...")
+
+# 1. Check which spidev devices exist
+import glob
+spi_devs = sorted(glob.glob("/dev/spidev*"))
+if spi_devs:
+    print(f"  ✓ SPI devices found: {', '.join(spi_devs)}")
+else:
+    print("  ✗ No /dev/spidev* devices found!")
+    print("    Fix: add 'dtoverlay=spi0-1cs' to /boot/firmware/config.txt and reboot")
+print()
+
+try:
+    import spidev, time
+
+    # 2. Loopback test — short MOSI (GPIO10) to MISO (GPIO9) with a wire
+    print("  Step 1 — Loopback test (connect GPIO10→GPIO9 with a jumper wire):")
+    spi = spidev.SpiDev()
+    spi.open(0, 0)
+    spi.max_speed_hz = 500_000
+    spi.mode = 0
+    test_bytes = [0x35, 0xAB, 0xCD]
+    loopback = bytes(spi.xfer2(test_bytes))
+    if list(loopback) == test_bytes:
+        print(f"  ✓ Loopback OK: sent {bytes(test_bytes).hex(' ').upper()}, got {loopback.hex(' ').upper()}")
+        print("    RPi SPI hardware is working. Remove jumper before connecting Arduino.")
+    else:
+        print(f"  ✗ Loopback FAILED: sent {bytes(test_bytes).hex(' ').upper()}, got {loopback.hex(' ').upper()}")
+        print("    If you have the jumper in: SPI driver issue.")
+        print("    If no jumper: expected — continue to Step 2.")
+    spi.close()
+    print()
+
+    # 3. Live Arduino test
+    print("  Step 2 — Arduino connected, sending REQUEST_SPEED (0x35 0x00 0x00) x10:")
+    print("  Wiring check: MOSI=GPIO10, MISO=GPIO9, SCLK=GPIO11, CS=GPIO8 → Arduino SS pin")
+    spi = spidev.SpiDev()
+    spi.open(0, 0)
+    spi.max_speed_hz = 500_000
+    spi.mode = 0
+    seen_nonzero = False
+    for i in range(10):
+        raw = bytes(spi.xfer2([0x35, 0x00, 0x00]))
+        speed_bytes = raw[1:]
+        speed = speed_bytes[0] | (speed_bytes[1] << 8)
+        hex_raw = raw.hex(' ').upper()
+        if any(speed_bytes):
+            seen_nonzero = True
+            if speed_bytes == bytes([0x35, 0x00]):
+                marker = "  ← still echoing (Arduino case '5' not implemented)"
+            else:
+                marker = f"  ← speed = {speed}"
+        else:
+            marker = "  ← zeros (CS not reaching Arduino SS, or ISR not loaded)"
+        print(f"  [{i+1:02d}] {hex_raw}{marker}")
+        time.sleep(0.05)
+    spi.close()
+    print()
+    if not seen_nonzero:
+        print("  ⚠ All zeros from Arduino — most likely causes:")
+        print("    1. CS (GPIO8) not wired to Arduino SS pin (pin 10 on Uno, pin 53 on Mega)")
+        print("    2. Arduino SPI slave not initialised (missing SPCR |= _BV(SPE))")
+        print("    3. SPI mode mismatch (try mode=1 if mode=0 gives zeros)")
+    else:
+        print("  ✓ Arduino responding — see speed values above")
+
+except ImportError:
+    print("  ⚠ spidev not installed (only needed on Pi)")
+except Exception as e:
+    print(f"  ✗ SPI error: {e}")
+print()
+
 # Summary
 print("="*80)
 if errors:

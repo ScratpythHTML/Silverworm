@@ -17,6 +17,7 @@ from __future__ import annotations
 import math
 import os
 import random
+import struct
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -38,6 +39,7 @@ from config import AppConfig, save_config, calculate_wrap_angle_deg
 from hardware import build_transports
 from comms import PUIListener, MotorController
 from comms import MockTransport, Transport
+from comms.motor_spi import MockSPITransport, ResponsePrefix
 from controller import (
     SetpointController, OperatingMode, Setpoints,
     SPEED_A_MIN, SPEED_A_MAX, SPEED_B_MIN, SPEED_B_MAX,
@@ -385,6 +387,24 @@ class MainWindow(QMainWindow):
                 lambda r=raw: self._inject_pui_message(r),
             )
 
+        debug_menu.addSeparator()
+        debug_menu.addSection("SPI speed injection")
+        for speed, label in ((500, "500 RPM"), (1000, "1000 RPM"), (0, "0 RPM (stop)")):
+            debug_menu.addAction(
+                f"Wrap speed: {label}",
+                lambda s=speed, l=label: self._inject_speed_response(
+                    self.wrap_motor_controller, s, f"wrap {l}"
+                ),
+            )
+        debug_menu.addSeparator()
+        for speed, label in ((10, "10 mm/s"), (5, "5 mm/s"), (0, "0 mm/s (stop)")):
+            debug_menu.addAction(
+                f"Feed speed: {label}",
+                lambda s=speed, l=label: self._inject_speed_response(
+                    self.feed_motor_controller, s, f"feed {l}"
+                ),
+            )
+
     def _inject_pui_message(self, raw: str) -> None:
         """Inject a PUI message — only works when transport is the Mock variant."""
         transport = self._transports.pui
@@ -396,6 +416,22 @@ class MainWindow(QMainWindow):
             return
         inject(raw)
 
+    def _inject_speed_response(
+        self, controller: MotorController, speed_units: int, label: str
+    ) -> None:
+        """Inject a fake Arduino current-speed reply into a MockSPITransport."""
+        transport = controller._transport
+        if not isinstance(transport, MockSPITransport):
+            self.alert_log.log(
+                f"Speed injection only available in mock mode ({label})", "warning"
+            )
+            return
+        packet = bytes([ResponsePrefix.CURRENT_SPEED]) + struct.pack("<H", speed_units)
+        transport.inject_response(packet)
+        self.alert_log.log(
+            f"Injected speed response → {label}: {speed_units} units", "info"
+        )
+
     # ------------------------------------------------------------------
     # Signal wiring
     # ------------------------------------------------------------------
@@ -405,6 +441,7 @@ class MainWindow(QMainWindow):
         self.controls.stop_clicked.connect(self._on_stop)
         self.controls.snapshot_clicked.connect(self._on_snapshot)
         self.controls.recalibrate_clicked.connect(self._on_recalibrate)
+        self.controls.test_clicked.connect(self._on_test_motors)
         self.camera.position_changed.connect(self._on_position_changed)
 
         self.controls.manual_mode_toggled.connect(self._on_manual_mode_button)
@@ -484,6 +521,16 @@ class MainWindow(QMainWindow):
         )
         self.feed_motor_controller.error_received.connect(
             lambda code: self.alert_log.log(f"Feed motor error code {code}", "error")
+        )
+        self.wrap_motor_controller.raw_bytes_received.connect(
+            lambda b: self.alert_log.log(
+                f"Wrap SPI raw (unrecognised): {b.hex(' ').upper()}", "warning"
+            )
+        )
+        self.feed_motor_controller.raw_bytes_received.connect(
+            lambda b: self.alert_log.log(
+                f"Feed SPI raw (unrecognised): {b.hex(' ').upper()}", "warning"
+            )
         )
 
     def _poll_motors(self) -> None:
@@ -582,6 +629,14 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # Start / stop
     # ------------------------------------------------------------------
+
+    def _on_test_motors(self) -> None:
+        try:
+            self.wrap_motor_controller.test_movement(1)
+            self.feed_motor_controller.test_movement(1)
+            self.alert_log.log("Test movement sent to both motors (0x04)", "info")
+        except Exception as e:
+            self.alert_log.log(f"Test movement failed: {e}", "error")
 
     def _on_start(self) -> None:
         self.app_state.gui_set_machine_on(True)

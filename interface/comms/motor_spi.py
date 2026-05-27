@@ -39,6 +39,7 @@ class CommandPrefix(IntEnum):
     STOP = 0x32           # case '2'
     SET_SPEED = 0x33      # case '3'
     TEST_MOVEMENT = 0x34  # case '4'
+    REQUEST_SPEED = 0x35  # case '5' — RPi asks Arduino to reply with current speed
 
 
 class ResponsePrefix(IntEnum):
@@ -80,6 +81,15 @@ def build_test_movement(movement_type: int) -> bytes:
     if not 0 <= movement_type <= 0xFF:
         raise ValueError("movement_type must fit in one byte")
     return bytes([CommandPrefix.TEST_MOVEMENT, movement_type])
+
+
+def build_request_speed() -> bytes:
+    """Ask the Arduino to reply with its current speed.
+    3 bytes total: command + 2 dummy bytes.
+    Arduino replies with [speedL, speedH] (no prefix) due to the 1-byte
+    SPI slave shift; the RPi reconstructs the prefix when parsing.
+    """
+    return bytes([CommandPrefix.REQUEST_SPEED, 0x00, 0x00])
 
 
 # ----- response types --------------------------------------------------------
@@ -231,16 +241,22 @@ class SPIMotorTransport(SPITransport):
         if self._spi is None:
             raise RuntimeError("SPI transport not open")
         response = bytes(self._spi.xfer2(list(data)))
-        if parse_arduino_response(response) is not None:
+        if any(response):           # keep any non-zero reply (parsed or not)
             self._inbox.append(response)
 
     def read(self) -> List[bytes]:
         if self._spi is None:
             return []
 
-        response = bytes(self._spi.xfer2([0] * self.read_length))
-        if parse_arduino_response(response) is not None:
-            self._inbox.append(response)
+        # Send REQUEST_SPEED (3 bytes). Arduino replies with [speedL, speedH]
+        # (no prefix) shifted by 1: raw = [stale, speedL, speedH].
+        # Prepend the CURRENT_SPEED prefix so parse_arduino_response works normally.
+        request = list(build_request_speed())
+        raw = bytes(self._spi.xfer2(request))
+        speed_bytes = raw[1:]       # strip stale byte 0 → [speedL, speedH]
+        if any(speed_bytes):
+            packet = bytes([ResponsePrefix.CURRENT_SPEED]) + speed_bytes
+            self._inbox.append(packet)
 
         out = self._inbox
         self._inbox = []
@@ -259,6 +275,7 @@ class MotorController(QObject):
     current_speed = pyqtSignal(int)
     error_received = pyqtSignal(int)
     sequence_status = pyqtSignal(int)
+    raw_bytes_received = pyqtSignal(bytes)   # emitted for unrecognised packets
 
     def __init__(self, transport: SPITransport, parent=None):
         super().__init__(parent)
@@ -292,3 +309,5 @@ class MotorController(QObject):
                 self.error_received.emit(resp.error_code)
             elif isinstance(resp, SequenceStatus):
                 self.sequence_status.emit(resp.status)
+            else:
+                self.raw_bytes_received.emit(packet)

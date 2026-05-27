@@ -17,6 +17,7 @@ class ControlPanel(GlowingCard):
     stop_clicked = pyqtSignal()
     snapshot_clicked = pyqtSignal()
     recalibrate_clicked = pyqtSignal()
+    test_clicked = pyqtSignal()
     manual_mode_toggled = pyqtSignal(bool)  # True = manual ON
 
     def __init__(self, parent=None):
@@ -47,10 +48,14 @@ class ControlPanel(GlowingCard):
         self.recalibrate_btn = AnimatedButton("RECALIBRATE", Theme.WARNING, Theme.WARNING_GLOW)
         self.recalibrate_btn.clicked.connect(self.recalibrate_clicked.emit)
 
+        self.test_btn = AnimatedButton("TEST MOTORS", Theme.INFO, Theme.INFO_GLOW)
+        self.test_btn.clicked.connect(self.test_clicked.emit)
+
         grid.addWidget(self.start_btn, 0, 0)
         grid.addWidget(self.stop_btn, 0, 1)
         grid.addWidget(self.snapshot_btn, 1, 0)
         grid.addWidget(self.recalibrate_btn, 1, 1)
+        grid.addWidget(self.test_btn, 2, 0, 1, 2)
         layout.addLayout(grid)
 
         self._manual_mode_on = False
