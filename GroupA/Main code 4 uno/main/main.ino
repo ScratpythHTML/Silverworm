@@ -117,7 +117,7 @@ QuickPID speedPID(&currentSpeed, &targetPWM, &omega_ref,
                   1.0, 2.0, 0.0, QuickPID::Action::direct);
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   // Your Motor constructor already sets pinMode for motor pins.
 
@@ -148,14 +148,18 @@ void loop() {
   byte command[3] = {0, 0, 0};
 
   if (newCommand) {
-    Serial.print("command received");
+    
     noInterrupts();
     for (byte i = 0; i < 3; i++) {
       command[i] = completedCommand[i];
     }
     newCommand = false;
+    
     interrupts();
-
+    Serial.println("command received");
+    Serial.println((char)command[0]);
+    Serial.print("command received HEX: ");
+    Serial.println(command[0], HEX);
     byte prefix = command[0];
 
     switch (prefix) {
