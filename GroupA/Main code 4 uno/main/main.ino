@@ -148,6 +148,7 @@ void loop() {
   byte command[3] = {0, 0, 0};
 
   if (newCommand) {
+    Serial.print("command received");
     noInterrupts();
     for (byte i = 0; i < 3; i++) {
       command[i] = completedCommand[i];
@@ -161,7 +162,9 @@ void loop() {
       case '1': {  // START
         int speed = command[1] | (command[2] << 8);
         omega_ref = speed;
+        Serial.print("starting up");
         setReply('3', '1', 0, 2);  // ACK start
+        Serial.print("reply sent");
         break;
       }
 
@@ -221,7 +224,9 @@ void loop() {
 
 
   // Serial Plotter output
-  Serial.print(omega_ref);
-  Serial.print(",");
-  Serial.println(targetPWM);
+  // Serial.print(omega_ref);
+  // // Serial.print(",");
+  // // Serial.println(targetPWM);
+  // Serial.print(",");
+  // Serial.println(currentSpeed);
 }
