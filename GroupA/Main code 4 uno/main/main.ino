@@ -81,8 +81,12 @@ ISR(SPI_STC_vect) {
     } else if (c == '2' || c == '4') {
       expectedCommandLength = 2;  // STOP or TEST
     } else {
-      expectedCommandLength = 1;  // invalid/unknown command
-    }
+    bufferIndex = 0;
+    expectedCommandLength = 0;
+    SPDR = 0;
+    return;
+    }  // invalid/unknown command
+    
   }
 
   // If full command received, copy it for loop() to process
@@ -109,9 +113,9 @@ ISR(SPI_STC_vect) {
 // -------------------- Motor and PID --------------------
 Motor motor(INA, INB, PWM);
 
-float omega_ref = 20.0;       // target speed in rad/s
+float omega_ref = 0.0;       // target speed in rad/s
 float currentSpeed = 0.0;    // measured speed from hall sensor
-float targetPWM = 10.0;      // PID output
+float targetPWM = 0.0;      // PID output
 
 QuickPID speedPID(&currentSpeed, &targetPWM, &omega_ref,
                   1.0, 2.0, 0.0, QuickPID::Action::direct);
@@ -156,32 +160,44 @@ void loop() {
     newCommand = false;
     
     interrupts();
-    Serial.println("command received");
-    Serial.println((char)command[0]);
-    Serial.print("command received HEX: ");
-    Serial.println(command[0], HEX);
+    // Serial.println("command received");
+    // Serial.print("ASCII: ");
+    // Serial.println(command[0]);
+    // Serial.print("HEX: ");
+    // Serial.println(command[0], HEX);
     byte prefix = command[0];
 
     switch (prefix) {
       case '1': {  // START
         int speed = command[1] | (command[2] << 8);
         omega_ref = speed;
-        Serial.print("starting up");
+        // Serial.println("starting up");
         setReply('3', '1', 0, 2);  // ACK start
-        Serial.print("reply sent");
+        // Serial.println("reply sent");
         break;
       }
 
       case '2': {  // STOP
-        motor.setSpeed(0);
         omega_ref = 0;
         targetPWM = 0;
+
+        speedPID.Reset();
+
+        motor.setSpeed(0);
         setReply('3', '2', 0, 2);  // ACK stop
         break;
       }
 
       case '3': {  // SET SPEED
+        Serial.print("command[1]: ");
+        Serial.println(command[1], DEC);
+        Serial.print("command[2]: ");
+        Serial.println(command[2], DEC);
+
         int speed = command[1] | (command[2] << 8);
+
+        Serial.print("speed: ");
+        Serial.println(speed);
         omega_ref = speed;
         break;
       }
@@ -229,8 +245,8 @@ void loop() {
 
   // Serial Plotter output
   // Serial.print(omega_ref);
-  // // Serial.print(",");
-  // // Serial.println(targetPWM);
+  // Serial.print(",");
+  // Serial.println(targetPWM);
   // Serial.print(",");
   // Serial.println(currentSpeed);
 }
