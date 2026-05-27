@@ -42,11 +42,8 @@ volatile byte replyLength = 0;
 volatile byte replyIndex = 0;
 
 unsigned long lastSpeedReportMs = 0;
-unsigned long testEndMs = 0;
 
-// If enabled, prints "TRIGGER <count> omega=<value>" every time the hall ISR fires.
-// This will clutter Serial Plotter, so keep it off once the sensor is stable.
-constexpr bool DEBUG_HALL = false;
+
 
 // True when ISR is mid-command or still shifting a reply (do not overwrite reply).
 bool spiIdle() {
@@ -116,7 +113,7 @@ ISR(SPI0_INT_vect) {
 
 
 Motor motor(INA, INB, PWM); // pins: INA, INB, PWM
-float omega_ref = 2; // original reference speed rad/s
+float omega_ref = 0; // original reference speed rad/s
 
 // Speed variables
 float currentSpeed = 0.0;     // will receive instantaneous omega
@@ -197,14 +194,11 @@ void loop() {
         case '3': {  // SET SPEED
             int speed = command[1] | (command[2] << 8);
             omega_ref = speed;
-            setReply('3', '3', 0, 2);
             break;
         }
 
-        case '4': {  // TEST — 200 ms pulse without blocking loop/SPI
-            motor.setSpeed(100);
-            testEndMs = millis() + 200;
-            setReply('3', '4', 0, 2);
+        case '4': {  
+
             break;
         }
 
@@ -213,10 +207,7 @@ void loop() {
             break;
     }
   }
-  if (testEndMs != 0 && millis() >= testEndMs) {
-    motor.setSpeed(0);
-    testEndMs = 0;
-  }
+
 
   // read latest instantaneous omega safely
   noInterrupts();
@@ -244,16 +235,7 @@ void loop() {
       setReply('1', speed & 0xFF, (speed >> 8) & 0xFF, 3);
     }
   }
-    if (DEBUG_HALL) {
-        static unsigned long lastCount = 0;
-        if (triggerCount != lastCount) {
-            lastCount = triggerCount;
-            Serial.print("TRIGGER ");
-            Serial.print(triggerCount);
-            Serial.print("  omega=");
-            Serial.println(omega);
-        }
-    }
+
   //output time current speed and target speed
   Serial.print(currentSpeed);
   Serial.print(",");
