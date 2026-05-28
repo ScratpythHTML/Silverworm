@@ -14,8 +14,6 @@
 #define PWM 3 // output the pwm to pin 3
 #define HALL 5 // Hall effect sensor input pin 5
 
-constexpr unsigned long SPEED_REPORT_INTERVAL_MS = 100;
-
 // === SPI slave configuration (Nano Every / ATmega4809) ===
 // Raspberry Pi SPI modes:
 // - Mode 0: CPOL=0, CPHA=0
@@ -40,10 +38,6 @@ volatile bool newCommand = false;
 volatile byte replyBuffer[3];
 volatile byte replyLength = 0;
 volatile byte replyIndex = 0;
-
-unsigned long lastSpeedReportMs = 0;
-
-
 
 // True when ISR is mid-command or still shifting a reply (do not overwrite reply).
 bool spiIdle() {
@@ -85,12 +79,13 @@ ISR(SPI0_INT_vect) {
     }
 
     if (bufferIndex == 1) {
-        if (c == '1' || c == '3') expectedCommandLength = 3;
+        if (c == '1' || c == '3' || c == '5') expectedCommandLength = 3;
         else if (c == '2' || c == '4') expectedCommandLength = 2;
-        else {        SPI0.DATA = 0;
-        replyLength = 0;
-        replyIndex = 0;
-        };
+        else {
+            SPI0.DATA = 0;
+            replyLength = 0;
+            replyIndex = 0;
+        }
     }
 
     if (expectedCommandLength > 0 && bufferIndex >= expectedCommandLength) {
@@ -162,7 +157,20 @@ void setup() {
 
     // Default outgoing byte before first clock
     SPI0.DATA = 0;
+
+    // Reset bufferIndex when SS is deasserted (transaction ends).
+    // Without this, each xfer2 call from the Pi leaves bufferIndex non-zero
+    // and subsequent commands land at the wrong buffer positions.
+    attachInterrupt(digitalPinToInterrupt(SPI_SS_PIN), onSSDeassert, RISING);
+
     Serial.begin(9600);
+}
+
+// Called when SS goes HIGH (end of SPI transaction). Resets framing state
+// so the next transaction is treated as a fresh command.
+void onSSDeassert() {
+    bufferIndex = 0;
+    expectedCommandLength = 0;
 }
 
 void loop() {
@@ -201,8 +209,13 @@ void loop() {
             break;
         }
 
-        case '4': {  
+        case '4': {
+            break;
+        }
 
+        case '5': {  // REQUEST_SPEED — reply with current speed
+            int speed = (int)currentSpeed;
+            setReply('1', speed & 0xFF, (speed >> 8) & 0xFF, 3);
             break;
         }
 
@@ -226,19 +239,6 @@ void loop() {
 
   // apply to motor
   motor.setSpeed((int)targetPWM);
-
-  // Unsolicited speed report (only when SPI is idle so we do not stomp command acks).
-  unsigned long now = millis();
-  if (now - lastSpeedReportMs >= SPEED_REPORT_INTERVAL_MS) {
-    lastSpeedReportMs = now;
-    noInterrupts();
-    bool idle = spiIdle();
-    interrupts();
-    if (idle) {
-      int speed = (int)currentSpeed;
-      setReply('1', speed & 0xFF, (speed >> 8) & 0xFF, 3);
-    }
-  }
 
   //output time current speed and target speed
 //   Serial.print(currentSpeed);
