@@ -288,26 +288,38 @@ class MotorController(QObject):
         self._transport.close()
 
     def start(self, speed: int) -> None:
-        self._transport.send(build_start(speed))
+        pkt = build_start(speed)
+        print(f"[SPI TX] START  speed={speed}  raw={pkt.hex(' ')}")
+        self._transport.send(pkt)
 
     def stop(self, stop_type: StopType = StopType.RAMP_DOWN) -> None:
-        self._transport.send(build_stop(stop_type))
+        pkt = build_stop(stop_type)
+        print(f"[SPI TX] STOP   type={stop_type.name}  raw={pkt.hex(' ')}")
+        self._transport.send(pkt)
 
     def set_speed(self, speed: int) -> None:
-        self._transport.send(build_set_speed(speed))
+        pkt = build_set_speed(speed)
+        print(f"[SPI TX] SET_SPEED  speed={speed}  raw={pkt.hex(' ')}")
+        self._transport.send(pkt)
 
     def test_movement(self, movement_type: int) -> None:
-        self._transport.send(build_test_movement(movement_type))
+        pkt = build_test_movement(movement_type)
+        print(f"[SPI TX] TEST_MOVEMENT  type={movement_type}  raw={pkt.hex(' ')}")
+        self._transport.send(pkt)
 
     def poll(self) -> None:
         """Drain pending response packets and emit signals. Call from a timer."""
         for packet in self._transport.read():
             resp = parse_arduino_response(packet)
             if isinstance(resp, CurrentSpeed):
+                print(f"[SPI RX] CURRENT_SPEED  speed={resp.speed}  raw={packet.hex(' ')}")
                 self.current_speed.emit(resp.speed)
             elif isinstance(resp, ErrorResponse):
+                print(f"[SPI RX] ERROR  code={resp.error_code}  raw={packet.hex(' ')}")
                 self.error_received.emit(resp.error_code)
             elif isinstance(resp, SequenceStatus):
+                print(f"[SPI RX] SEQ_STATUS  status={resp.status}  raw={packet.hex(' ')}")
                 self.sequence_status.emit(resp.status)
             else:
+                print(f"[SPI RX] UNKNOWN  raw={packet.hex(' ')}")
                 self.raw_bytes_received.emit(packet)

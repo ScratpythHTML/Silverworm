@@ -22,7 +22,15 @@
 
 
 
-constexpr uint8_t SPI_DATA_MODE = 0;
+// === SPI slave configuration (Nano Every / ATmega4809) ===
+// Raspberry Pi SPI modes:
+// - Mode 0: CPOL=0, CPHA=0
+// - Mode 1: CPOL=0, CPHA=1
+// - Mode 2: CPOL=1, CPHA=0
+// - Mode 3: CPOL=1, CPHA=1
+//
+// Change this if the Pi reads garbage / shifted bytes.
+constexpr uint8_t SPI_DATA_MODE = 0; // 0..3
 
 volatile byte receivedBuffer[3];
 volatile byte completedCommand[3];
@@ -45,6 +53,7 @@ float rampRate = 0.2;
 
 QuickPID speedPID(&currentSpeed, &targetPWM, &omega_ref,
                   1.0, 2.0, 0.0, QuickPID::Action::direct);
+
 
 bool spiIdle() {
   return bufferIndex == 0 && replyLength == 0 && replyIndex == 0;
@@ -155,6 +164,13 @@ void setup() {
 
 
 
+}
+
+// Called when SS goes HIGH (end of SPI transaction). Resets framing state
+// so the next transaction is treated as a fresh command.
+void onSSDeassert() {
+    bufferIndex = 0;
+    expectedCommandLength = 0;
 }
 
 void loop() {
@@ -284,18 +300,8 @@ void loop() {
   }
 
   speedPID.Compute();
-
-  targetPWM = constrain(targetPWM, -120, 120);
-  motor.setSpeed((int) targetPWM);
-
-
-  // Serial.print(omega_ref);
-  // Serial.print(',');
-  // Serial.print(targetPWM);
-  // Serial.print(',');
-  // Serial.print(currentSpeed);
-
-  
+  targetPWM = constrain(targetPWM, -255, 255);
+  motor.setSpeed((int)targetPWM);
 }
 
 

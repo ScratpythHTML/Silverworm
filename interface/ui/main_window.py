@@ -639,16 +639,6 @@ class MainWindow(QMainWindow):
             self.alert_log.log(f"Test movement failed: {e}", "error")
 
     def _on_start(self) -> None:
-        # START sends the staged speed(s) to the motors. If nothing has been
-        # set yet, starting would only send speed 0 (motors wouldn't move) —
-        # warn instead of silently going to a zero-speed "running" state.
-        if self.app_state.wrap_speed_rpm <= 0 and self.app_state.feed_speed_mms <= 0:
-            self.alert_log.log(
-                "Set a motor speed before pressing START — "
-                "START sends the set speed to the motors.",
-                "warning",
-            )
-            return
         self.app_state.gui_set_machine_on(True)
 
     def _on_stop(self) -> None:
