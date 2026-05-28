@@ -35,17 +35,17 @@ from PyQt6.QtCore import QObject, pyqtSignal
 # ----- enums -----------------------------------------------------------------
 
 class CommandPrefix(IntEnum):
-    START = 0x31          # Arduino switch uses case '1' (ASCII)
-    STOP = 0x32           # case '2'
-    SET_SPEED = 0x33      # case '3'
-    TEST_MOVEMENT = 0x34  # case '4'
-    REQUEST_SPEED = 0x35  # case '5' — RPi asks Arduino to reply with current speed
+    START = 0x01
+    STOP = 0x02
+    SET_SPEED = 0x03
+    TEST_MOVEMENT = 0x04
+    REQUEST_SPEED = 0x05  # RPi asks Arduino to reply with current speed
 
 
 class ResponsePrefix(IntEnum):
-    CURRENT_SPEED = 0x31   # Arduino setReply('1', ...)
-    ERROR = 0x32           # setReply('2', ...)
-    SEQUENCE_STATUS = 0x33 # setReply('3', ...)
+    CURRENT_SPEED = 0x01
+    ERROR = 0x02
+    SEQUENCE_STATUS = 0x03
 
 
 class StopType(IntEnum):
@@ -90,6 +90,25 @@ def build_request_speed() -> bytes:
     SPI slave shift; the RPi reconstructs the prefix when parsing.
     """
     return bytes([CommandPrefix.REQUEST_SPEED, 0x00, 0x00])
+
+
+def _normalize_spi_response(tx_data: bytes, raw: bytes) -> Optional[bytes]:
+    """Convert a raw SPI transaction into a parseable response packet.
+
+    The real Arduino path can return a 1-byte shifted frame for current-speed
+    readback. When the command was REQUEST_SPEED, treat the trailing two bytes
+    as the speed payload and reconstruct the expected CURRENT_SPEED prefix.
+    """
+    if not raw:
+        return None
+
+    if raw[0] in (ResponsePrefix.CURRENT_SPEED, ResponsePrefix.ERROR, ResponsePrefix.SEQUENCE_STATUS):
+        return bytes(raw[:3])
+
+    if tx_data and tx_data[0] == CommandPrefix.REQUEST_SPEED and len(raw) >= 3:
+        return bytes([ResponsePrefix.CURRENT_SPEED, raw[1], raw[2]])
+
+    return None
 
 
 # ----- response types --------------------------------------------------------
@@ -202,11 +221,10 @@ class SPIMotorTransport(SPITransport):
     CPHA=0). We set mode explicitly to match rather than relying on the
     spidev default.
 
-    Response framing: the Arduino pushes a reply into SPDR during the
-    same ISR that receives a command. The RPi reads the reply by clocking
-    three zero bytes immediately after sending. No data-ready GPIO is
-    used; the assumption is that the reply is always ready for the next
-    transaction after a command is sent.
+    Response framing: the Arduino reply is normalized from the raw SPI
+    transaction into a parseable packet. For current-speed polling, the
+    returned frame may be shifted by one byte, so we reconstruct the
+    CURRENT_SPEED prefix before it is queued.
     """
 
     def __init__(
@@ -240,24 +258,14 @@ class SPIMotorTransport(SPITransport):
     def send(self, data: bytes) -> None:
         if self._spi is None:
             raise RuntimeError("SPI transport not open")
-        # Arduino SPI slave has a 1-byte shift: whatever it loaded into SPDR
-        # before this transaction appears in byte[0]; the real reply starts
-        # at byte[1]. Strip byte[0] so parse_arduino_response sees a clean packet.
         raw = bytes(self._spi.xfer2(list(data)))
-        response = raw[1:]
-        if any(response):
+        response = _normalize_spi_response(data, raw)
+        if response is not None and any(response):
             self._inbox.append(response)
 
     def read(self) -> List[bytes]:
         if self._spi is None:
             return []
-        # Do NOT clock any bytes here. Sending unrecognised bytes corrupts the
-        # Arduino's bufferIndex and prevents it from recognising subsequent
-        # commands. The Arduino queues unsolicited speed reports every 100 ms;
-        # those arrive as the reply bytes during the next send() call.
-        # (Full 3-byte speed replies need SS-based bufferIndex reset on the
-        # Arduino side — see Group A integration notes.)
-
         out = self._inbox
         self._inbox = []
         return out
@@ -307,8 +315,17 @@ class MotorController(QObject):
         print(f"[SPI TX] TEST_MOVEMENT  type={movement_type}  raw={pkt.hex(' ')}")
         self._transport.send(pkt)
 
+    def request_speed(self) -> None:
+        pkt = build_request_speed()
+        print(f"[SPI TX] REQUEST_SPEED  raw={pkt.hex(' ')}")
+        self._transport.send(pkt)
+
     def poll(self) -> None:
-        """Drain pending response packets and emit signals. Call from a timer."""
+        """Request current speed, then drain pending response packets.
+
+        Call this from a timer to keep the current-speed readout updated.
+        """
+        self.request_speed()
         for packet in self._transport.read():
             resp = parse_arduino_response(packet)
             if isinstance(resp, CurrentSpeed):

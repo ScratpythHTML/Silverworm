@@ -297,10 +297,12 @@ class MainWindow(QMainWindow):
         self.feed_motor_panel = MotorMetricPanel(
             "Feed Motor", 1.0,
             speed_min=SPEED_A_MIN, speed_max=SPEED_A_MAX,
+            unit="mm/s",
         )
         self.wrap_motor_panel = MotorMetricPanel(
             "Wrapper Motor", 1000.0,
             speed_min=SPEED_B_MIN, speed_max=SPEED_B_MAX,
+            unit="RPM",
         )
         right.addWidget(self.feed_motor_panel)
         right.addWidget(self.wrap_motor_panel)
@@ -556,8 +558,8 @@ class MainWindow(QMainWindow):
         self.feed_motor_panel.set_target(value)
         if self.controller.set_manual_speed_a(value):
             if self._last_comms_ok:
-                self.camera.show_overlay_message(f"Feed motor speed set to {value:.1f}")
-                self.alert_log.log(f"Feed motor speed manually set: {value:.1f}", "success")
+                self.camera.show_overlay_message(f"Feed motor speed set to {value:.1f} mm/s")
+                self.alert_log.log(f"Feed motor speed manually set: {value:.1f} mm/s", "success")
 
     def _on_wrap_motor_set(self, value: float) -> None:
         self.app_state.gui_set_wrap_speed(value)
@@ -739,7 +741,7 @@ class MainWindow(QMainWindow):
         self.wrap_motor_panel.update_metrics(wrapper)
 
         if abs(feed - 1.0) > 1.0:
-            self.alert_log.log(f"Feed motor deviation: {feed:.1f} RPM", "warning")
+            self.alert_log.log(f"Feed motor deviation: {feed:.1f} mm/s", "warning")
 
     def _update_graph(self) -> None:
         if not self._is_running:
