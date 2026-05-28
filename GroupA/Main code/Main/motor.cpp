@@ -11,13 +11,14 @@ Motor::Motor(int a, int b, int pwm) {
 
 void Motor::setSpeed(float speed) {
     speed = constrain(speed, -255, 255);
-    if(speed >= 0) {
+    if(speed <= 0) {
         digitalWrite(pinA, HIGH);
         digitalWrite(pinB, LOW);
+        speed = -speed; // make positive for PWM
     } else {
         digitalWrite(pinA, LOW);
         digitalWrite(pinB, HIGH);
-        speed = -speed; // make positive for PWM
+        
     }
     analogWrite(pinPWM, int(speed));
 }
