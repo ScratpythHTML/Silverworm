@@ -454,6 +454,7 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         let port = null;
         let reader = null;
         let isConnected = false;
+        let serialWriteQueue = Promise.resolve();
 
         const dialElements = {
             1: document.getElementById('dial1'),
@@ -586,17 +587,24 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
             }
         }
 
-        async function sendSerialCommand(cmd) {
-            if (!port || !isConnected) return;
+        function sendSerialCommand(cmd) {
+            if (!port || !isConnected) return Promise.resolve();
 
-            try {
-                const writer = port.writable.getWriter();
-                const data = new TextEncoder().encode(JSON.stringify(cmd) + '\n');
-                await writer.write(data);
-                writer.releaseLock();
-            } catch (err) {
-                logI2C(`Write error: ${err.message}`, 'error');
-            }
+            serialWriteQueue = serialWriteQueue
+                .then(async () => {
+                    const writer = port.writable.getWriter();
+                    try {
+                        const data = new TextEncoder().encode(JSON.stringify(cmd) + '\n');
+                        await writer.write(data);
+                    } finally {
+                        writer.releaseLock();
+                    }
+                })
+                .catch(err => {
+                    logI2C(`Write error: ${err.message}`, 'error');
+                });
+
+            return serialWriteQueue;
         }
 
         Object.keys(dialElements).forEach(dialNum => {
@@ -730,7 +738,8 @@ void setup() {
   delay(1000);
 
   // Initialize I2C slave
-  Wire.begin((uint8_t)I2C_SLAVE_ADDR, I2C_SDA, I2C_SCL, 400000);
+  Wire.setPins(I2C_SDA, I2C_SCL)
+  Wire.begin(I2C_SLAVE_ADDR, 100000);
   Wire.onReceive(onI2CReceive);
   Wire.onRequest(onI2CRequest);
 

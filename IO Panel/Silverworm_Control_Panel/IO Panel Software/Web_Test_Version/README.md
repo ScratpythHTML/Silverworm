@@ -117,7 +117,7 @@ The web interface sends the same I2C commands as the physical hardware:
 ### No response when clicking buttons
 - Check serial monitor (115200 baud) for debug messages
 - Verify I2C connection to Raspberry Pi
-- Check that Raspberry Pi is configured as I2C master at address 0x55
+- Check that Raspberry Pi is configured as I2C master
 
 ### HTML file won't open
 - Make sure you're using Web Serial API supported browser
