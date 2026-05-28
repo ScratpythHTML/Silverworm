@@ -152,7 +152,7 @@ void loop() {
   byte command[3] = {0, 0, 0};
 
   if (newCommand) {
-    
+    Serial.print("received");
     noInterrupts();
     for (byte i = 0; i < 3; i++) {
       command[i] = completedCommand[i];
@@ -160,11 +160,6 @@ void loop() {
     newCommand = false;
     
     interrupts();
-    // Serial.println("command received");
-    // Serial.print("ASCII: ");
-    // Serial.println(command[0]);
-    // Serial.print("HEX: ");
-    // Serial.println(command[0], HEX);
     byte prefix = command[0];
 
     switch (prefix) {
@@ -202,8 +197,15 @@ void loop() {
         break;
       }
 
-      case '4': {  // TEST — 200 ms pulse
+      case '4': {  
+        Serial.print("test begin ");
+        break;
+      }
 
+      case '5': {  
+        Serial.println("sent");
+        int speed = 50;
+        setReply('1',speed & 0xFF,(speed >> 8) & 0xFF,3);
         break;
       }
 
@@ -228,25 +230,33 @@ void loop() {
   motor.setSpeed(targetPWM);
 
   // Queue speed report every 100 ms, only if SPI is idle
-  unsigned long now = millis();
-  if (now - lastSpeedReportMs >= SPEED_REPORT_INTERVAL_MS) {
-    lastSpeedReportMs = now;
+  // unsigned long now = millis();
+  // if (now - lastSpeedReportMs >= SPEED_REPORT_INTERVAL_MS) {
+  //   lastSpeedReportMs = now;
 
-    noInterrupts();
-    bool idle = spiIdle();
-    interrupts();
+  //   noInterrupts();
+  //   bool idle = spiIdle();
+  //   interrupts();
 
-    if (idle) {
-      int speed = (int)currentSpeed;
-      setReply('1', speed & 0xFF, (speed >> 8) & 0xFF, 3);
-    }
-  }
+  //   if (idle) {
+  //     int speed = (int)currentSpeed;
+  //     bool ok = setReply('1',
+  //                       speed & 0xFF,
+  //                       (speed >> 8) & 0xFF,
+  //                       3);
+  //     Serial.println("sent");
+
+  //     if (!ok) {
+  //         Serial.println("reply queue busy");
+  //     }
+  //   }
+  //}
 
 
-  // Serial Plotter output
+  // // Serial Plotter output
   // Serial.print(omega_ref);
   // Serial.print(",");
-  // Serial.println(targetPWM);
+  // Serial.print(targetPWM);
   // Serial.print(",");
   // Serial.println(currentSpeed);
 }

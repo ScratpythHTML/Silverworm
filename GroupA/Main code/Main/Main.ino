@@ -87,7 +87,10 @@ ISR(SPI0_INT_vect) {
     if (bufferIndex == 1) {
         if (c == '1' || c == '3') expectedCommandLength = 3;
         else if (c == '2' || c == '4') expectedCommandLength = 2;
-        else expectedCommandLength = 1;
+        else {        SPI0.DATA = 0;
+        replyLength = 0;
+        replyIndex = 0;
+        };
     }
 
     if (expectedCommandLength > 0 && bufferIndex >= expectedCommandLength) {
@@ -166,6 +169,7 @@ void loop() {
   byte command[3] = {0, 0, 0};
 
   if (newCommand) {
+    Serial.print("received");
     noInterrupts();
     for (byte i = 0; i < 3; i++) {
       command[i] = completedCommand[i];
@@ -237,10 +241,10 @@ void loop() {
   }
 
   //output time current speed and target speed
-  Serial.print(currentSpeed);
-  Serial.print(",");
-//   Serial.println(omega_ref);
+//   Serial.print(currentSpeed);
 //   Serial.print(",");
-  Serial.println(targetPWM);
+// //   Serial.println(omega_ref);
+// //   Serial.print(",");
+//   Serial.println(targetPWM);
   
 }
