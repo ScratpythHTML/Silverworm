@@ -91,7 +91,7 @@ class AppState(QObject):
     wrap_speed_changed = pyqtSignal(float)       # rpm
     feed_speed_changed = pyqtSignal(float)       # mm/s
     motor_error = pyqtSignal(str)                # SPI / hardware error message
-    mode_change_blocked = pyqtSignal(str)        # human-readable rejection reason
+    mode_change_blocked = pyqtSignal(str)        # human-readable reject ion reason
 
     def __init__(
         self,

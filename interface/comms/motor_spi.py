@@ -240,23 +240,23 @@ class SPIMotorTransport(SPITransport):
     def send(self, data: bytes) -> None:
         if self._spi is None:
             raise RuntimeError("SPI transport not open")
-        response = bytes(self._spi.xfer2(list(data)))
-        if any(response):           # keep any non-zero reply (parsed or not)
+        # Arduino SPI slave has a 1-byte shift: whatever it loaded into SPDR
+        # before this transaction appears in byte[0]; the real reply starts
+        # at byte[1]. Strip byte[0] so parse_arduino_response sees a clean packet.
+        raw = bytes(self._spi.xfer2(list(data)))
+        response = raw[1:]
+        if any(response):
             self._inbox.append(response)
 
     def read(self) -> List[bytes]:
         if self._spi is None:
             return []
-
-        # Send REQUEST_SPEED (3 bytes). Arduino replies with [speedL, speedH]
-        # (no prefix) shifted by 1: raw = [stale, speedL, speedH].
-        # Prepend the CURRENT_SPEED prefix so parse_arduino_response works normally.
-        request = list(build_request_speed())
-        raw = bytes(self._spi.xfer2(request))
-        speed_bytes = raw[1:]       # strip stale byte 0 → [speedL, speedH]
-        if any(speed_bytes):
-            packet = bytes([ResponsePrefix.CURRENT_SPEED]) + speed_bytes
-            self._inbox.append(packet)
+        # Do NOT clock any bytes here. Sending unrecognised bytes corrupts the
+        # Arduino's bufferIndex and prevents it from recognising subsequent
+        # commands. The Arduino queues unsolicited speed reports every 100 ms;
+        # those arrive as the reply bytes during the next send() call.
+        # (Full 3-byte speed replies need SS-based bufferIndex reset on the
+        # Arduino side — see Group A integration notes.)
 
         out = self._inbox
         self._inbox = []
