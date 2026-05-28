@@ -10,7 +10,7 @@
 #define PWM 3
 #define HALL 5
 
-#define SPI_SS_PIN 8
+#define SPI_SS_PIN 9
 
 constexpr uint8_t SPI_DATA_MODE = 0;
 
@@ -78,7 +78,7 @@ ISR(SPI0_INT_vect) {
       expectedCommandLength = 2;
     } 
     else if (c == '5') {
-      expectedCommandLength = 1;
+      expectedCommandLength = 3;
     } 
     else {
       bufferIndex = 0;
@@ -143,7 +143,6 @@ void loop() {
   byte command[3] = {0, 0, 0};
 
   if (newCommand) {
-    Serial.print("command received");
     noInterrupts();
     for (byte i = 0; i < 3; i++) {
       command[i] = completedCommand[i];
@@ -158,8 +157,9 @@ void loop() {
 
     switch (prefix) {
       case '1': {
-        int speed = command[1] | (command[2] << 8);
-        omega_ref = speed;
+        int speed_rpm = command[1] | (command[2] << 8);
+        float speed_rad = speed_rpm * (2.0 * 3.14156 / 60.0);
+        omega_ref =speed_rad;
         setReply('3', '1', 0, 2);
         break;
       }
@@ -174,21 +174,21 @@ void loop() {
       }
 
       case '3': {
-        int speed = command[1] | (command[2] << 8);
-        omega_ref = speed;
-        setReply('3', '3', 0, 2);
+        int speed_rpm = command[1] | (command[2] << 8);
+        float speed_rad = speed_rpm * (2.0 * 3.14156 / 60.0);
+        omega_ref = speed_rad;
         break;
       }
 
       case '4': {
         Serial.println("test command received");
-        setReply('3', '4', 0, 2);
+
         break;
       }
 
       case '5': {
         int speed = (int)currentSpeed;
-        setReply('1', speed & 0xFF, (speed >> 8) & 0xFF, 3);
+        setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
         Serial.println("speed reply queued");
         break;
       }
