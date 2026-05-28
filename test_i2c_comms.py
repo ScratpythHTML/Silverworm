@@ -20,7 +20,7 @@ except ImportError:
 
 class I2CTestListener:
     I2C_BUS = 1  # RPi I2C bus (use 0 on older Pi)
-    ESP32_ADDR = 0x55  # ESP32 controller I2C address (adjust if needed)
+    ESP32_ADDR = 0x08  # ESP32 controller I2C address (adjust if needed)
 
     def __init__(self):
         self.bus = None
