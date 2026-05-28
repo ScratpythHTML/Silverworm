@@ -10,7 +10,17 @@
 #define PWM 3
 #define HALL 5
 
-#define SPI_SS_PIN 9
+// Nano Every hardware SPI ALT2 pins:
+// CS/SS = D8
+// MOSI  = D11
+// MISO  = D12
+// SCK   = D13
+#define SPI_SS_PIN 8
+#define SPI_MOSI_PIN 11
+#define SPI_MISO_PIN 12
+#define SPI_SCK_PIN 13
+
+
 
 constexpr uint8_t SPI_DATA_MODE = 0;
 
@@ -30,11 +40,11 @@ float omega_ref = 0;
 float currentSpeed = 0.0;
 float targetPWM = 30;
 
-
-
+float omega_target = 0;
+float rampRate = 0.2;
 
 QuickPID speedPID(&currentSpeed, &targetPWM, &omega_ref,
-                  30.0, 2.0, 0.0, QuickPID::Action::direct);
+                  1.0, 2.0, 0.0, QuickPID::Action::direct);
 
 bool spiIdle() {
   return bufferIndex == 0 && replyLength == 0 && replyIndex == 0;
@@ -74,14 +84,14 @@ ISR(SPI0_INT_vect) {
   }
 
   if (bufferIndex == 1) {
-    if (c == '1' || c == '3') {
+    if (c == 0x01 || c == 0x03) {
       expectedCommandLength = 3;
     } 
-    else if (c == '2' || c == '4') {
+    else if (c == 0x02) {
       expectedCommandLength = 2;
     } 
-    else if (c == '5') {
-      expectedCommandLength = 3;
+    else if (c == 0x04|| c == 0x05) {
+      expectedCommandLength = 1;
     } 
     else {
       bufferIndex = 0;
@@ -123,23 +133,28 @@ void setup() {
   speedPID.SetSampleTimeUs(50000);
   speedPID.SetMode(QuickPID::Control::automatic);
 
-  pinMode(MISO, OUTPUT);
-  pinMode(MOSI, INPUT);
-  pinMode(SCK, INPUT);
-  pinMode(SPI_SS_PIN, INPUT_PULLUP);
-
   PORTMUX.TWISPIROUTEA = PORTMUX_SPI0_ALT2_gc;
 
-  SPI0.CTRLA = SPI_ENABLE_bm;
-  SPI0.CTRLA &= ~SPI_MASTER_bm;
+  pinMode(SPI_SS_PIN, INPUT_PULLUP);
+  pinMode(SPI_MOSI_PIN, INPUT);
+  pinMode(SPI_MISO_PIN, OUTPUT);
+  pinMode(SPI_SCK_PIN, INPUT);
+
+  SPI0.CTRLA = 0;
   SPI0.CTRLB = spiModeToCtrlb(SPI_DATA_MODE);
-  SPI0.INTCTRL = SPI_IE_bm;
   SPI0.INTFLAGS = SPI_IF_bm;
+  SPI0.INTCTRL = SPI_IE_bm;
   SPI0.DATA = 0;
+
+  SPI0.CTRLA = SPI_ENABLE_bm;
 
   interrupts();
 
   Serial.println("Nano Every SPI slave ready");
+
+
+
+
 }
 
 void loop() {
@@ -155,80 +170,100 @@ void loop() {
 
     byte prefix = command[0];
     byte second = command[1];
+
     Serial.print("received: ");
-    Serial.println((char)prefix);
+    Serial.println(prefix);
 
     switch (prefix) {
-      case '1': { // start
+      case 0x01: {
+        int speed_rpm = command[1] | (command[2] << 8);
+        Serial.print(speed_rpm);
+        float speed_rad = speed_rpm * (2.0 * 3.14156 / 60.0);
+        omega_target = speed_rad;
+        rampRate = 0.2;
+        setReply(0x03, 0x01, 0, 2);
+        break;
+      }
+
+      case 0x02: {
+            motor.setSpeed(0);
+            omega_target = 0;
+            omega_ref = 0;
+            targetPWM = 0;
+            speedPID.Reset();
+            setReply(0x03, 0x02, 0, 2);
+            break;
+      }
+      //   switch (second) {
+      //     case '1': {
+      //       omega_target = 0;
+      //       rampRate = 0.2;
+      //       setReply('3', '2', 0, 2);
+      //       break;
+      //     }
+
+      //     case '2': {
+      //       motor.setSpeed(0);
+      //       omega_target = 0;
+      //       omega_ref = 0;
+      //       targetPWM = 0;
+      //       speedPID.Reset();
+      //       setReply('3', '2', 0, 2);
+      //       break;
+      //     }
+
+      //     case '3': {
+      //       motor.setSpeed(0);
+      //       omega_target = 0;
+      //       omega_ref = 0;
+      //       targetPWM = 0;
+      //       speedPID.Reset();
+      //       setReply('3', '2', 0, 2);
+      //       break;
+      //     }
+
+      //     default: {
+      //       setReply('2', '1', 0, 2);
+      //       break;
+      //     }
+      //   }
+      //   break;
+      // }
+
+      case 0x03: {
         int speed_rpm = command[1] | (command[2] << 8);
         float speed_rad = speed_rpm * (2.0 * 3.14156 / 60.0);
-        omega_ref =speed_rad;
-        setReply('3', '1', 0, 2);
+        omega_target = speed_rad;
+        rampRate = 20;
+        setReply(0x03, 0x03, 0, 2);
         break;
       }
 
-      case '2': { //stop
-        switch (second){
-          case '1' : { //gentle ramp down
-            motor.setSpeed(0);
-            omega_ref = 0;
-            targetPWM = 0;
-            speedPID.Reset();
-            setReply('3', '2', 0, 2);
-            break;
-          }
-
-          case '2' : { // immediate stop
-            motor.setSpeed(0);
-            omega_ref = 0;
-            targetPWM = 0;
-            speedPID.Reset();
-            setReply('3', '2', 0, 2);
-            break;
-          }
-
-          case '3' :{ // cut power
-            motor.setSpeed(0);
-            omega_ref = 0;
-            targetPWM = 0;
-            speedPID.Reset();
-            setReply('3', '2', 0, 2);
-            break;
-          } 
-        }
-
-        break;
-      }
-
-      case '3': {
-        int speed_rpm = command[1] | (command[2] << 8);
-        float speed_rad = speed_rpm * (2.0 * 3.14156 / 60.0);
-        omega_ref = speed_rad;
-        break;
-      }
-
-      case '4': {
+      case 0x04: {
         Serial.println("test command received");
-
+        setReply(0x03, 0x04, 0x00, 2);
         break;
       }
 
-      case '5': {
+      case 0x05: {
         unsigned long now = millis();
-        if (lastPulseTime > 0 && (now - lastPulseTime)> 2000){
-          int speed = -5;
-          setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
-          Serial.println("speed reply queued");
-          break;
+
+        int speed;
+
+        if (lastPulseTime > 0 && (now - lastPulseTime) > 2000) {
+          speed = -5;
+        } else {
+          speed = (int)currentSpeed;
         }
-        int speed = (int)currentSpeed;
-        setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
+
+        // setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
+        setReply(2,3, 4,3);
         Serial.println("speed reply queued");
         break;
       }
 
       default: {
-        setReply('2', '1', 0, 2);
+        setReply(0x02, 0x01, 0x00, 2);
         break;
       }
     }
@@ -238,7 +273,29 @@ void loop() {
   currentSpeed = omega;
   interrupts();
 
+  if (omega_ref < omega_target) {
+    omega_ref += rampRate;
+    if (omega_ref > omega_target) omega_ref = omega_target;
+  }
+
+  if (omega_ref > omega_target) {
+    omega_ref -= rampRate;
+    if (omega_ref < omega_target) omega_ref = omega_target;
+  }
+
   speedPID.Compute();
-  targetPWM = constrain(targetPWM, -255, 255);
-  motor.setSpeed((int)targetPWM);
+
+  targetPWM = constrain(targetPWM, -120, 120);
+  motor.setSpeed((int) targetPWM);
+
+
+  // Serial.print(omega_ref);
+  // Serial.print(',');
+  // Serial.print(targetPWM);
+  // Serial.print(',');
+  // Serial.print(currentSpeed);
+
+  
 }
+
+
