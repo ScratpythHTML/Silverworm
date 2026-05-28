@@ -30,6 +30,9 @@ float omega_ref = 0;
 float currentSpeed = 0.0;
 float targetPWM = 30;
 
+
+
+
 QuickPID speedPID(&currentSpeed, &targetPWM, &omega_ref,
                   30.0, 2.0, 0.0, QuickPID::Action::direct);
 
@@ -151,12 +154,12 @@ void loop() {
     interrupts();
 
     byte prefix = command[0];
-
+    byte second = command[1];
     Serial.print("received: ");
     Serial.println((char)prefix);
 
     switch (prefix) {
-      case '1': {
+      case '1': { // start
         int speed_rpm = command[1] | (command[2] << 8);
         float speed_rad = speed_rpm * (2.0 * 3.14156 / 60.0);
         omega_ref =speed_rad;
@@ -164,12 +167,36 @@ void loop() {
         break;
       }
 
-      case '2': {
-        motor.setSpeed(0);
-        omega_ref = 0;
-        targetPWM = 0;
-        speedPID.Reset();
-        setReply('3', '2', 0, 2);
+      case '2': { //stop
+        switch (second){
+          case '1' : { //gentle ramp down
+            motor.setSpeed(0);
+            omega_ref = 0;
+            targetPWM = 0;
+            speedPID.Reset();
+            setReply('3', '2', 0, 2);
+            break;
+          }
+
+          case '2' : { // immediate stop
+            motor.setSpeed(0);
+            omega_ref = 0;
+            targetPWM = 0;
+            speedPID.Reset();
+            setReply('3', '2', 0, 2);
+            break;
+          }
+
+          case '3' :{ // cut power
+            motor.setSpeed(0);
+            omega_ref = 0;
+            targetPWM = 0;
+            speedPID.Reset();
+            setReply('3', '2', 0, 2);
+            break;
+          } 
+        }
+
         break;
       }
 
@@ -187,6 +214,13 @@ void loop() {
       }
 
       case '5': {
+        unsigned long now = millis();
+        if (lastPulseTime > 0 && (now - lastPulseTime)> 2000){
+          int speed = -5;
+          setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
+          Serial.println("speed reply queued");
+          break;
+        }
         int speed = (int)currentSpeed;
         setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
         Serial.println("speed reply queued");
