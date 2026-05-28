@@ -1,0 +1,197 @@
+{
+    "ThemeSettings": [
+        {
+            "CustomTheme": [
+                {
+                    "Theme-name": "IndustrialDark",
+                    "Background-color": "#0a0e14",
+                    "Text-color": "#e6e6e6",
+                    "Accent-color": "#00d4aa",
+                    "Icons-color": "#00d4aa",
+                    "Default-Theme": true,
+                    "Create-icons": true
+                },
+                {
+                    "Theme-name": "IndustrialLight",
+                    "Background-color": "#f5f7fa",
+                    "Text-color": "#1a1a2e",
+                    "Accent-color": "#00897b",
+                    "Icons-color": "#00897b",
+                    "Default-Theme": false,
+                    "Create-icons": true
+                }
+            ]
+        }
+    ],
+    "QCard": [
+        {
+            "cards": [
+                "cameraCard",
+                "feedMotorCard",
+                "wrapperMotorCard",
+                "pitchMetricsCard",
+                "controlsCard",
+                "alertLogCard",
+                "pitchGraphCard"
+            ],
+            "shadow": [
+                {
+                    "color": "#000000",
+                    "blurRadius": 20,
+                    "xOffset": 0,
+                    "yOffset": 4
+                }
+            ]
+        }
+    ],
+    "QPushButton": [
+        {
+            "name": "startBtn",
+            "theme": "IndustrialDark",
+            "customTheme": [
+                {
+                    "color1": "#00d68f",
+                    "color2": "#00b377"
+                }
+            ],
+            "animateOn": "hover",
+            "animation": "fade",
+            "animationDuration": 200,
+            "animationEasingCurve": "in-out-cubic",
+            "fallBackStyle": [
+                "background-color: #1a4d3a;",
+                "color: #4a7c6a;",
+                "border: none;",
+                "border-radius: 8px;",
+                "padding: 12px 24px;",
+                "font-weight: 600;"
+            ],
+            "defaultStyle": [
+                "background-color: #00d68f;",
+                "color: #000000;",
+                "border: none;",
+                "border-radius: 8px;",
+                "padding: 12px 24px;",
+                "font-weight: 600;"
+            ],
+            "shadow": [
+                {
+                    "color": "#00d68f",
+                    "applyShadowOn": "hover",
+                    "animateShadow": true,
+                    "animateShadowDuration": 200,
+                    "blurRadius": 15,
+                    "xOffset": 0,
+                    "yOffset": 0
+                }
+            ]
+        },
+        {
+            "name": "stopBtn",
+            "theme": "IndustrialDark",
+            "customTheme": [
+                {
+                    "color1": "#ff6b6b",
+                    "color2": "#ee5a5a"
+                }
+            ],
+            "animateOn": "hover",
+            "animation": "fade",
+            "animationDuration": 200,
+            "animationEasingCurve": "in-out-cubic",
+            "fallBackStyle": [
+                "background-color: #4d2a2a;",
+                "color: #7c4a4a;",
+                "border: none;",
+                "border-radius: 8px;",
+                "padding: 12px 24px;",
+                "font-weight: 600;"
+            ],
+            "defaultStyle": [
+                "background-color: #ff6b6b;",
+                "color: #ffffff;",
+                "border: none;",
+                "border-radius: 8px;",
+                "padding: 12px 24px;",
+                "font-weight: 600;"
+            ],
+            "shadow": [
+                {
+                    "color": "#ff6b6b",
+                    "applyShadowOn": "hover",
+                    "animateShadow": true,
+                    "animateShadowDuration": 200,
+                    "blurRadius": 15,
+                    "xOffset": 0,
+                    "yOffset": 0
+                }
+            ]
+        },
+        {
+            "name": "snapshotBtn",
+            "theme": "IndustrialDark",
+            "customTheme": [
+                {
+                    "color1": "#339af0",
+                    "color2": "#228be6"
+                }
+            ],
+            "animateOn": "hover",
+            "animation": "fade",
+            "animationDuration": 200,
+            "animationEasingCurve": "in-out-cubic",
+            "defaultStyle": [
+                "background-color: #339af0;",
+                "color: #ffffff;",
+                "border: none;",
+                "border-radius: 8px;",
+                "padding: 12px 24px;",
+                "font-weight: 600;"
+            ],
+            "shadow": [
+                {
+                    "color": "#339af0",
+                    "applyShadowOn": "hover",
+                    "animateShadow": true,
+                    "animateShadowDuration": 200,
+                    "blurRadius": 15,
+                    "xOffset": 0,
+                    "yOffset": 0
+                }
+            ]
+        },
+        {
+            "name": "recalibrateBtn",
+            "theme": "IndustrialDark",
+            "customTheme": [
+                {
+                    "color1": "#ffaa00",
+                    "color2": "#e69500"
+                }
+            ],
+            "animateOn": "hover",
+            "animation": "fade",
+            "animationDuration": 200,
+            "animationEasingCurve": "in-out-cubic",
+            "defaultStyle": [
+                "background-color: #ffaa00;",
+                "color: #000000;",
+                "border: none;",
+                "border-radius: 8px;",
+                "padding: 12px 24px;",
+                "font-weight: 600;"
+            ],
+            "shadow": [
+                {
+                    "color": "#ffaa00",
+                    "applyShadowOn": "hover",
+                    "animateShadow": true,
+                    "animateShadowDuration": 200,
+                    "blurRadius": 15,
+                    "xOffset": 0,
+                    "yOffset": 0
+                }
+            ]
+        }
+    ]
+}
