@@ -46,13 +46,14 @@ Motor motor(INA, INB, PWM);
 
 float omega_ref = 0;
 float currentSpeed = 0.0;
-float targetPWM = 30;
+float targetPWM = 18;
 
 float omega_target = 0;
 float rampRate = 0.2;
 
 QuickPID speedPID(&currentSpeed, &targetPWM, &omega_ref,
-                  1.0, 2.0, 0.0, QuickPID::Action::direct);
+                  0.35, 0.15
+                  , 0.0, QuickPID::Action::direct);
 
 
 bool spiIdle() {
@@ -138,7 +139,7 @@ void setup() {
   pinMode(HALL, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(HALL), hallISR, FALLING);
 
-  speedPID.SetOutputLimits(-255, 255);
+  speedPID.SetOutputLimits(18, 255);
   speedPID.SetSampleTimeUs(50000);
   speedPID.SetMode(QuickPID::Control::automatic);
 
@@ -159,7 +160,7 @@ void setup() {
 
   interrupts();
 
-  Serial.println("Nano Every SPI slave ready");
+
 
 
 
@@ -187,13 +188,9 @@ void loop() {
     byte prefix = command[0];
     byte second = command[1];
 
-    Serial.print("received: ");
-    Serial.println(prefix);
-
     switch (prefix) {
       case 0x01: {
         int speed_rpm = command[1] | (command[2] << 8);
-        Serial.print(speed_rpm);
         float speed_rad = speed_rpm * (2.0 * 3.14156 / 60.0);
         omega_target = speed_rad;
         rampRate = 0.2;
@@ -208,6 +205,7 @@ void loop() {
             targetPWM = 0;
             speedPID.Reset();
             setReply(0x03, 0x02, 0, 2);
+
             break;
       }
       //   switch (second) {
@@ -262,19 +260,22 @@ void loop() {
       }
 
       case 0x05: {
-        unsigned long now = millis();
+        unsigned long now = micros();
 
         int speed;
 
-        if (lastPulseTime > 0 && (now - lastPulseTime) > 2000) {
+        if (lastPulseTime > 0 && (now - lastPulseTime) > 2000000UL){
           speed = -5;
         } else {
-          speed = (int)currentSpeed;
-        }
+          speed = (int)(currentSpeed * 60.0 / (2.0 * 3.14156));
 
-        // setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
-        setReply(2,3, 4,3);
-        Serial.println("speed reply queued");
+        }
+        
+        setReply(speed & 0xFF,
+         (speed >> 8) & 0xFF,
+         0,
+         2);
+        
         break;
       }
 
@@ -286,8 +287,20 @@ void loop() {
   }
 
   noInterrupts();
+  unsigned long last = lastPulseTime;
   currentSpeed = omega;
   interrupts();
+
+  if (
+      (last > 0 && (micros() - last) > 2000000UL)
+    ) {
+
+      currentSpeed = 0;
+
+      noInterrupts();
+      omega = 0;
+      interrupts();
+  }
 
   if (omega_ref < omega_target) {
     omega_ref += rampRate;
@@ -300,8 +313,13 @@ void loop() {
   }
 
   speedPID.Compute();
-  targetPWM = constrain(targetPWM, -255, 255);
+  targetPWM = constrain(targetPWM, 0, 225);
   motor.setSpeed((int)targetPWM);
-}
 
+  Serial.print(currentSpeed * 60.0 / (2.0 * 3.14156));
+  Serial.print(",");
+  Serial.print(omega_target * 60.0 / (2.0 * 3.14156));
+  Serial.print(",");
+  Serial.println(targetPWM);
+}
 
