@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QWidget,
     QLineEdit,
 )
+from typing import Optional
 
 from ui.theme import Theme
 from ui.widgets import GlowingCard, PulsingIndicator, AnimatedMetricValue
@@ -160,7 +161,17 @@ class MotorMetricPanel(GlowingCard):
         self.target_rpm = rpm
         self._target_label.setText(f"{rpm:.0f} {self.unit}")
 
-    def update_metrics(self, actual: float):
+    def update_metrics(self, actual: Optional[float]):
+        """Update displayed metrics. Pass None to show N/A when no feedback exists."""
+        if actual is None:
+            self.actual_value.set_value(None)
+            self.error_value.setText("--")
+            muted = Theme.TEXT_MUTED
+            self.actual_value.setStyleSheet(f"color: {muted};")
+            self.error_value.setStyleSheet(f"color: {muted};")
+            self.status_indicator.set_color(muted)
+            return
+
         if self.target_rpm == 0.0:
             self.actual_value.set_value(actual, self.unit, 1)
             self.error_value.setText("--")
