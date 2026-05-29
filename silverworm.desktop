@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Silverworm
+Comment=Yarn Pitch Estimation Control System
+Exec=/usr/bin/python3 /home/pi/Silverworm/app.py
+Icon=/home/pi/Silverworm/assets/icon.png
+Type=Application
+Terminal=false
+Categories=Utility;
