@@ -137,7 +137,7 @@ try:
     print()
 
     # 3. Live Arduino test
-    print("  Step 2 — Arduino connected, sending REQUEST_SPEED (0x35 0x00 0x00) x10:")
+    print("  Step 2 — Arduino connected, sending REQUEST_SPEED (0x05 0x00 0x00) x10:")
     print("  Wiring check: MOSI=GPIO10, MISO=GPIO9, SCLK=GPIO11, CS=GPIO8 → Arduino SS pin")
     spi = spidev.SpiDev()
     spi.open(0, 0)
@@ -145,14 +145,14 @@ try:
     spi.mode = 0
     seen_nonzero = False
     for i in range(10):
-        raw = bytes(spi.xfer2([0x35, 0x00, 0x00]))
+        raw = bytes(spi.xfer2([0x05, 0x00, 0x00]))
         speed_bytes = raw[1:]
         speed = speed_bytes[0] | (speed_bytes[1] << 8)
         hex_raw = raw.hex(' ').upper()
         if any(speed_bytes):
             seen_nonzero = True
-            if speed_bytes == bytes([0x35, 0x00]):
-                marker = "  ← still echoing (Arduino case '5' not implemented)"
+            if speed_bytes == bytes([0x05, 0x00]):
+                marker = "  ← still echoing (Arduino case 5 not implemented)"
             else:
                 marker = f"  ← speed = {speed}"
         else:

@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QWidget,
     QLineEdit,
 )
+from typing import Optional
 
 from ui.theme import Theme
 from ui.widgets import GlowingCard, PulsingIndicator, AnimatedMetricValue
@@ -31,9 +32,11 @@ class MotorMetricPanel(GlowingCard):
         target_rpm: float,
         speed_min: float = 0.0,
         speed_max: float = 3000.0,
+        unit: str = "RPM",
         parent=None,
     ):
         super().__init__(parent)
+        self.unit = unit
         self.target_rpm = target_rpm
 
         layout = QVBoxLayout(self)
@@ -56,7 +59,7 @@ class MotorMetricPanel(GlowingCard):
         metrics = QGridLayout()
         metrics.setSpacing(16)
         self._target_label = self._add_metric(
-            metrics, 0, "TARGET", f"{target_rpm:.0f} RPM", Theme.TEXT_SECONDARY
+            metrics, 0, "TARGET", f"{target_rpm:.0f} {self.unit}", Theme.TEXT_SECONDARY
         )
 
         actual_label = QLabel("ACTUAL")
@@ -65,7 +68,7 @@ class MotorMetricPanel(GlowingCard):
         metrics.addWidget(actual_label, 0, 1)
 
         self.actual_value = AnimatedMetricValue()
-        self.actual_value.setText("-- RPM")
+        self.actual_value.setText(f"-- {self.unit}")
         metrics.addWidget(self.actual_value, 1, 1)
 
         error_label = QLabel("ERROR")
@@ -90,7 +93,7 @@ class MotorMetricPanel(GlowingCard):
         manual_layout.addWidget(manual_label)
 
         self.manual_input = QLineEdit()
-        self.manual_input.setPlaceholderText(f"{speed_min:.0f} – {speed_max:.0f} RPM")
+        self.manual_input.setPlaceholderText(f"{speed_min:.0f} – {speed_max:.0f} {self.unit}")
         self.manual_input.setFont(QFont("Consolas", 14, QFont.Weight.Bold))
         self.manual_input.setFixedWidth(160)
         self.manual_input.setValidator(QDoubleValidator(speed_min, speed_max, 2))
@@ -110,10 +113,10 @@ class MotorMetricPanel(GlowingCard):
         self.manual_input.returnPressed.connect(self._on_set_clicked)
         manual_layout.addWidget(self.manual_input)
 
-        rpm_suffix = QLabel("RPM")
-        rpm_suffix.setFont(QFont("Segoe UI", 10))
-        rpm_suffix.setStyleSheet(f"color: {Theme.TEXT_MUTED};")
-        manual_layout.addWidget(rpm_suffix)
+        unit_suffix = QLabel(self.unit)
+        unit_suffix.setFont(QFont("Segoe UI", 10))
+        unit_suffix.setStyleSheet(f"color: {Theme.TEXT_MUTED};")
+        manual_layout.addWidget(unit_suffix)
 
         self.set_btn = QPushButton("SET")
         self.set_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
@@ -156,15 +159,25 @@ class MotorMetricPanel(GlowingCard):
 
     def set_target(self, rpm: float) -> None:
         self.target_rpm = rpm
-        self._target_label.setText(f"{rpm:.0f} RPM")
+        self._target_label.setText(f"{rpm:.0f} {self.unit}")
 
-    def update_metrics(self, actual: float):
+    def update_metrics(self, actual: Optional[float]):
+        """Update displayed metrics. Pass None to show N/A when no feedback exists."""
+        if actual is None:
+            self.actual_value.set_value(None)
+            self.error_value.setText("--")
+            muted = Theme.TEXT_MUTED
+            self.actual_value.setStyleSheet(f"color: {muted};")
+            self.error_value.setStyleSheet(f"color: {muted};")
+            self.status_indicator.set_color(muted)
+            return
+
         if self.target_rpm == 0.0:
-            self.actual_value.set_value(actual, "RPM", 1)
+            self.actual_value.set_value(actual, self.unit, 1)
             self.error_value.setText("--")
             return
         error = abs((actual - self.target_rpm) / self.target_rpm * 100)
-        self.actual_value.set_value(actual, "RPM", 1)
+        self.actual_value.set_value(actual, self.unit, 1)
         self.error_value.setText(f"{error:.1f}%")
 
         if error > 10:

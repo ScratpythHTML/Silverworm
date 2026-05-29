@@ -10,7 +10,17 @@
 #define PWM 3
 #define HALL 5
 
-#define SPI_SS_PIN 9
+// Nano Every hardware SPI ALT2 pins:
+// CS/SS = D8
+// MOSI  = D11
+// MISO  = D12
+// SCK   = D13
+#define SPI_SS_PIN 8
+#define SPI_MOSI_PIN 11
+#define SPI_MISO_PIN 12
+#define SPI_SCK_PIN 13
+
+
 
 // === SPI slave configuration (Nano Every / ATmega4809) ===
 // Raspberry Pi SPI modes:
@@ -36,13 +46,14 @@ Motor motor(INA, INB, PWM);
 
 float omega_ref = 0;
 float currentSpeed = 0.0;
-float targetPWM = 30;
+float targetPWM = 18;
 
-
-
+float omega_target = 0;
+float rampRate = 0.2;
 
 QuickPID speedPID(&currentSpeed, &targetPWM, &omega_ref,
-                  30.0, 2.0, 0.0, QuickPID::Action::direct);
+                  0.35, 0.15
+                  , 0.0, QuickPID::Action::direct);
 
 
 bool spiIdle() {
@@ -83,14 +94,14 @@ ISR(SPI0_INT_vect) {
   }
 
   if (bufferIndex == 1) {
-    if (c == '1' || c == '3') {
+    if (c == 0x01 || c == 0x03) {
       expectedCommandLength = 3;
     } 
-    else if (c == '2' || c == '4') {
+    else if (c == 0x02) {
       expectedCommandLength = 2;
     } 
-    else if (c == '5') {
-      expectedCommandLength = 3;
+    else if (c == 0x04|| c == 0x05) {
+      expectedCommandLength = 1;
     } 
     else {
       bufferIndex = 0;
@@ -123,35 +134,37 @@ ISR(SPI0_INT_vect) {
 }
 
 void setup() {
-  Serial.begin(9600);
+  // Serial.begin(9600);
 
   pinMode(HALL, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(HALL), hallISR, FALLING);
 
-  speedPID.SetOutputLimits(-255, 255);
+  speedPID.SetOutputLimits(18, 255);
   speedPID.SetSampleTimeUs(50000);
   speedPID.SetMode(QuickPID::Control::automatic);
 
-  pinMode(MISO, OUTPUT);
-  pinMode(MOSI, INPUT);
-  pinMode(SCK, INPUT);
-  pinMode(SPI_SS_PIN, INPUT_PULLUP);
-
   PORTMUX.TWISPIROUTEA = PORTMUX_SPI0_ALT2_gc;
 
-  SPI0.CTRLA = SPI_ENABLE_bm;
-  SPI0.CTRLA &= ~SPI_MASTER_bm;
+  pinMode(SPI_SS_PIN, INPUT_PULLUP);
+  pinMode(SPI_MOSI_PIN, INPUT);
+  pinMode(SPI_MISO_PIN, OUTPUT);
+  pinMode(SPI_SCK_PIN, INPUT);
+
+  SPI0.CTRLA = 0;
   SPI0.CTRLB = spiModeToCtrlb(SPI_DATA_MODE);
-  SPI0.INTCTRL = SPI_IE_bm;
   SPI0.INTFLAGS = SPI_IF_bm;
+  SPI0.INTCTRL = SPI_IE_bm;
   SPI0.DATA = 0;
 
-  // Reset bufferIndex when SS is deasserted so each Pi transaction is a fresh command.
-  attachInterrupt(digitalPinToInterrupt(SPI_SS_PIN), onSSDeassert, RISING);
+  SPI0.CTRLA = SPI_ENABLE_bm;
 
   interrupts();
 
-  Serial.println("Nano Every SPI slave ready");
+
+
+
+
+
 }
 
 // Called when SS goes HIGH (end of SPI transaction). Resets framing state
@@ -174,97 +187,139 @@ void loop() {
 
     byte prefix = command[0];
     byte second = command[1];
-    Serial.print("received: ");
-    Serial.println((char)prefix);
 
     switch (prefix) {
-      case '1': { // start
+      case 0x01: {
         int speed_rpm = command[1] | (command[2] << 8);
         float speed_rad = speed_rpm * (2.0 * 3.14156 / 60.0);
-        omega_ref =speed_rad;
-        setReply('3', '1', 0, 2);
+        omega_target = speed_rad;
+        rampRate = 0.2;
+        setReply(0x03, 0x01, 0, 2);
         break;
       }
 
-      case '2': { //stop
-        switch (second){
-          case '1' : { //gentle ramp down
+      case 0x02: {
             motor.setSpeed(0);
+            omega_target = 0;
             omega_ref = 0;
             targetPWM = 0;
             speedPID.Reset();
-            setReply('3', '2', 0, 2);
-            break;
-          }
+            setReply(0x03, 0x02, 0, 2);
 
-          case '2' : { // immediate stop
-            motor.setSpeed(0);
-            omega_ref = 0;
-            targetPWM = 0;
-            speedPID.Reset();
-            setReply('3', '2', 0, 2);
             break;
-          }
-
-          case '3' :{ // cut power
-            motor.setSpeed(0);
-            omega_ref = 0;
-            targetPWM = 0;
-            speedPID.Reset();
-            setReply('3', '2', 0, 2);
-            break;
-          } 
-        }
-
-        break;
       }
+      //   switch (second) {
+      //     case '1': {
+      //       omega_target = 0;
+      //       rampRate = 0.2;
+      //       setReply('3', '2', 0, 2);
+      //       break;
+      //     }
 
-      case '3': {
+      //     case '2': {
+      //       motor.setSpeed(0);
+      //       omega_target = 0;
+      //       omega_ref = 0;
+      //       targetPWM = 0;
+      //       speedPID.Reset();
+      //       setReply('3', '2', 0, 2);
+      //       break;
+      //     }
+
+      //     case '3': {
+      //       motor.setSpeed(0);
+      //       omega_target = 0;
+      //       omega_ref = 0;
+      //       targetPWM = 0;
+      //       speedPID.Reset();
+      //       setReply('3', '2', 0, 2);
+      //       break;
+      //     }
+
+      //     default: {
+      //       setReply('2', '1', 0, 2);
+      //       break;
+      //     }
+      //   }
+      //   break;
+      // }
+
+      case 0x03: {
         int speed_rpm = command[1] | (command[2] << 8);
         float speed_rad = speed_rpm * (2.0 * 3.14156 / 60.0);
-        omega_ref = speed_rad;
+        omega_target = speed_rad;
+        rampRate = 20;
+        setReply(0x03, 0x03, 0, 2);
         break;
       }
 
-      case '4': {
-        Serial.println("test command received");
-
+      case 0x04: {
+        // Serial.println("test command received");
+        setReply(0x03, 0x04, 0x00, 2);
         break;
       }
 
-      case '5': {
-        unsigned long now = millis();
-        if (lastPulseTime > 0 && (now - lastPulseTime)> 2000){
-          int speed = -5;
-          setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
-          Serial.println("speed reply queued");
-          break;
+      case 0x05: {
+        unsigned long now = micros();
+
+        int speed;
+
+        if (lastPulseTime > 0 && (now - lastPulseTime) > 2000000UL){
+          speed = -5;
+        } else {
+          speed = (int)(currentSpeed * 60.0 / (2.0 * 3.14156));
+
         }
-        int speed = (int)currentSpeed;
-        setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
-        Serial.println("speed reply queued");
+        
+        setReply(speed & 0xFF,
+         (speed >> 8) & 0xFF,
+         0,
+         2);
+        
         break;
       }
 
       default: {
-        setReply('2', '1', 0, 2);
+        setReply(0x02, 0x01, 0x00, 2);
         break;
       }
     }
   }
 
   noInterrupts();
+  unsigned long last = lastPulseTime;
   currentSpeed = omega;
   interrupts();
 
+  if (
+      (last > 0 && (micros() - last) > 2000000UL)
+    ) {
+
+      currentSpeed = 0;
+
+      noInterrupts();
+      omega = 0;
+      interrupts();
+  }
+
+  if (omega_ref < omega_target) {
+    omega_ref += rampRate;
+    if (omega_ref > omega_target) omega_ref = omega_target;
+  }
+
+  if (omega_ref > omega_target) {
+    omega_ref -= rampRate;
+    if (omega_ref < omega_target) omega_ref = omega_target;
+  }
+
   speedPID.Compute();
-  targetPWM = constrain(targetPWM, -255, 255);
+  targetPWM = constrain(targetPWM, 0, 225);
   motor.setSpeed((int)targetPWM);
 
-//   Serial.print(currentSpeed);
-//   Serial.print(",");
-//   Serial.println(omega_ref);
-//   Serial.print(",");
-//   Serial.println(targetPWM);
-
+  // Serial.print(currentSpeed * 60.0 / (2.0 * 3.14156));
+  // Serial.print(",");
+  // Serial.print(omega_target * 60.0 / (2.0 * 3.14156));
+  // Serial.print(",");
+  // Serial.println(targetPWM);
 }
+

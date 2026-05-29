@@ -28,7 +28,7 @@ from PyQt6.QtCore import Qt, QTimer, QStandardPaths
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QPushButton, QFileDialog,
+    QLabel, QPushButton, QFileDialog, QInputDialog,
 )
 
 # Hardware + state
@@ -77,6 +77,8 @@ class MainWindow(QMainWindow):
         self._distance = 0
         self._calibrated_scale_um_per_px: float = config.scale_um_per_px
         self._calibration_manually_applied: bool = config.scale_um_per_px > 0
+        self._last_wrap_feedback_ts: float = 0.0
+        self._last_feed_feedback_ts: float = 0.0
 
         # Camera + processing state
         self.camera_worker: Optional[CameraWorker] = None
@@ -297,10 +299,12 @@ class MainWindow(QMainWindow):
         self.feed_motor_panel = MotorMetricPanel(
             "Feed Motor", 1.0,
             speed_min=SPEED_A_MIN, speed_max=SPEED_A_MAX,
+            unit="mm/s",
         )
         self.wrap_motor_panel = MotorMetricPanel(
             "Wrapper Motor", 1000.0,
             speed_min=SPEED_B_MIN, speed_max=SPEED_B_MAX,
+            unit="RPM",
         )
         right.addWidget(self.feed_motor_panel)
         right.addWidget(self.wrap_motor_panel)
@@ -404,6 +408,15 @@ class MainWindow(QMainWindow):
                     self.feed_motor_controller, s, f"feed {l}"
                 ),
             )
+        debug_menu.addSeparator()
+        debug_menu.addAction(
+            "Inject custom wrap speed...",
+            lambda: self._prompt_and_inject(self.wrap_motor_controller, is_wrap=True),
+        )
+        debug_menu.addAction(
+            "Inject custom feed speed...",
+            lambda: self._prompt_and_inject(self.feed_motor_controller, is_wrap=False),
+        )
 
     def _inject_pui_message(self, raw: str) -> None:
         """Inject a PUI message — only works when transport is the Mock variant."""
@@ -431,6 +444,16 @@ class MainWindow(QMainWindow):
         self.alert_log.log(
             f"Injected speed response → {label}: {speed_units} units", "info"
         )
+
+    def _prompt_and_inject(self, controller: MotorController, is_wrap: bool) -> None:
+        label = "wrap" if is_wrap else "feed"
+        title = f"Inject {label} speed"
+        prompt = f"Enter {label} speed in {'RPM' if is_wrap else 'mm/s'}:"
+        value, ok = QInputDialog.getDouble(self, title, prompt, 0.0, 0.0, 100000.0, 1)
+        if not ok:
+            return
+        units = int(round(value * (WRAP_RPM_UNITS_PER if is_wrap else FEED_MMS_UNITS_PER)))
+        self._inject_speed_response(controller, units, f"{label} {value:.1f}")
 
     # ------------------------------------------------------------------
     # Signal wiring
@@ -510,12 +533,16 @@ class MainWindow(QMainWindow):
 
     def _connect_motor_feedback(self) -> None:
         """Arduino → MotorController → panel: real motor readback."""
-        self.wrap_motor_controller.current_speed.connect(
-            lambda units: self.wrap_motor_panel.update_metrics(units / WRAP_RPM_UNITS_PER)
-        )
-        self.feed_motor_controller.current_speed.connect(
-            lambda units: self.feed_motor_panel.update_metrics(units / FEED_MMS_UNITS_PER)
-        )
+        def _on_wrap_current(units: int) -> None:
+            self._last_wrap_feedback_ts = datetime.now().timestamp()
+            self.wrap_motor_panel.update_metrics(units / WRAP_RPM_UNITS_PER)
+
+        def _on_feed_current(units: int) -> None:
+            self._last_feed_feedback_ts = datetime.now().timestamp()
+            self.feed_motor_panel.update_metrics(units / FEED_MMS_UNITS_PER)
+
+        self.wrap_motor_controller.current_speed.connect(_on_wrap_current)
+        self.feed_motor_controller.current_speed.connect(_on_feed_current)
         self.wrap_motor_controller.error_received.connect(
             lambda code: self.alert_log.log(f"Wrap motor error code {code}", "error")
         )
@@ -556,8 +583,8 @@ class MainWindow(QMainWindow):
         self.feed_motor_panel.set_target(value)
         if self.controller.set_manual_speed_a(value):
             if self._last_comms_ok:
-                self.camera.show_overlay_message(f"Feed motor speed set to {value:.1f}")
-                self.alert_log.log(f"Feed motor speed manually set: {value:.1f}", "success")
+                self.camera.show_overlay_message(f"Feed motor speed set to {value:.1f} mm/s")
+                self.alert_log.log(f"Feed motor speed manually set: {value:.1f} mm/s", "success")
 
     def _on_wrap_motor_set(self, value: float) -> None:
         self.app_state.gui_set_wrap_speed(value)
@@ -715,9 +742,7 @@ class MainWindow(QMainWindow):
 
         - Manual mode: show the current setpoint as the actual value (no
           real feedback path until the Arduino reports `current_speed`).
-        - Auto + mock platform: synthesise a plausible value so the panel
-          isn't dead during dev. NOT used on real hardware — those values
-          come from `_connect_motor_feedback`.
+        - Auto mode: show N/A when no recent SPI feedback has arrived.
         """
         if not self._is_running:
             return
@@ -727,19 +752,14 @@ class MainWindow(QMainWindow):
             self.wrap_motor_panel.update_metrics(self.app_state.wrap_speed_rpm)
             return
 
-        if self.config.hw_platform != "mock":
-            return  # real hardware drives the panels via current_speed signals
+        now_ts = datetime.now().timestamp()
+        stale_seconds = 1.5
 
-        feed = max(0.5, min(3.0, 1.0 + random.gauss(0.5, 0.3)))
-        self.feed_motor_panel.update_metrics(feed)
+        if (now_ts - self._last_feed_feedback_ts) > stale_seconds:
+            self.feed_motor_panel.update_metrics(None)
 
-        t = datetime.now().timestamp()
-        osc = math.sin(t * 0.5) * 50 + math.sin(t * 1.3) * 25
-        wrapper = max(850, min(1000, 925 + osc + random.gauss(0, 10)))
-        self.wrap_motor_panel.update_metrics(wrapper)
-
-        if abs(feed - 1.0) > 1.0:
-            self.alert_log.log(f"Feed motor deviation: {feed:.1f} RPM", "warning")
+        if (now_ts - self._last_wrap_feedback_ts) > stale_seconds:
+            self.wrap_motor_panel.update_metrics(None)
 
     def _update_graph(self) -> None:
         if not self._is_running:

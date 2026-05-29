@@ -8,10 +8,27 @@ import pytest
 from comms.motor_spi import (
     CommandPrefix, ResponsePrefix, StopType, SPEED_MAX,
     build_start, build_stop, build_set_speed, build_test_movement,
+    build_request_speed,
     parse_arduino_response,
     CurrentSpeed, ErrorResponse, SequenceStatus,
     MockSPITransport, MotorController, SPIMotorTransport,
 )
+
+
+class TestPrefixByteValues:
+    """The wire protocol uses raw byte codes (README), not ASCII digits."""
+
+    def test_command_prefix_values(self):
+        assert CommandPrefix.START == 0x01
+        assert CommandPrefix.STOP == 0x02
+        assert CommandPrefix.SET_SPEED == 0x03
+        assert CommandPrefix.TEST_MOVEMENT == 0x04
+        assert CommandPrefix.REQUEST_SPEED == 0x05
+
+    def test_response_prefix_values(self):
+        assert ResponsePrefix.CURRENT_SPEED == 0x01
+        assert ResponsePrefix.ERROR == 0x02
+        assert ResponsePrefix.SEQUENCE_STATUS == 0x03
 
 
 class TestSetSpeedPacket:
@@ -161,6 +178,7 @@ class TestMockSPITransportAndController:
         mc.poll()
 
         assert received == [0x0010]
+        assert t.sent == [build_request_speed()]
 
     def test_motor_controller_poll_emits_error(self, qapp):
         t = MockSPITransport()
@@ -214,12 +232,9 @@ class TestSPIMotorTransport:
         assert spi_instances[0].device == 2
         assert spi_instances[0].max_speed_hz == 123_000
         assert spi_instances[0].transfers == [[CommandPrefix.SET_SPEED, 0x34, 0x12]]
-        assert transport.read() == [
-            bytes([ResponsePrefix.CURRENT_SPEED, 0x34, 0x12]),
-            bytes([ResponsePrefix.CURRENT_SPEED, 0x34, 0x12]),
-        ]
+        assert transport.read() == [bytes([ResponsePrefix.CURRENT_SPEED, 0x34, 0x12])]
 
-    def test_read_polls_with_zeroes(self, monkeypatch):
+    def test_request_speed_reconstructs_shifted_response(self, monkeypatch):
         class FakeSpiDev:
             def open(self, bus, device):
                 pass
@@ -229,16 +244,17 @@ class TestSPIMotorTransport:
 
             def xfer2(self, data):
                 self.last_transfer = data
-                return [ResponsePrefix.CURRENT_SPEED, 0x10, 0x00]
+                return [CommandPrefix.REQUEST_SPEED, 0x10, 0x00]
 
         fake = FakeSpiDev()
         monkeypatch.setitem(sys.modules, "spidev", SimpleNamespace(SpiDev=lambda: fake))
 
         transport = SPIMotorTransport(read_length=3)
         transport.open()
+        transport.send(build_request_speed())
 
         assert transport.read() == [bytes([ResponsePrefix.CURRENT_SPEED, 0x10, 0x00])]
-        assert fake.last_transfer == [0, 0, 0]
+        assert fake.last_transfer == [CommandPrefix.REQUEST_SPEED, 0x00, 0x00]
 
 
 # qapp fixture is provided by pytest-qt via conftest.py.

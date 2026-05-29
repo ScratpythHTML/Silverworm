@@ -68,7 +68,7 @@ class PlatformConfig:
 #   SPI0 MOSI GPIO10  pin 19 ← wrap motor
 #   SPI0 MISO GPIO9   pin 21
 #   SPI0 SCLK GPIO11  pin 23
-#   SPI0 CE0  GPIO8   pin 24
+#   SPI0 CE0  GPIO7   pin 24
 #   SPI1 MOSI GPIO20  pin 38 ← feed motor
 #   SPI1 MISO GPIO19  pin 35
 #   SPI1 SCLK GPIO21  pin 40
@@ -82,11 +82,11 @@ RPI5 = PlatformConfig(
         scl_gpio=3,          scl_physical_pin=5,
     ),
     wrap_spi=SPIConfig(
-        bus=0, device=0,
+        bus=1, device=2,
         mosi_gpio=10,        # pin 19
         miso_gpio=9,         # pin 21
         sclk_gpio=11,        # pin 23
-        cs_gpio=8,           # pin 24 CE0
+        cs_gpio=7,           # pin 24 CE0
     ),
     feed_spi=SPIConfig(
         bus=1, device=0,

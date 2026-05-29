@@ -1,7 +1,7 @@
 #include "interrupts.h"
 volatile unsigned long triggerCount = 0;   // ADD THIS
-const int pulsePerRev = 1; //amount of pulses for each revolution
-volatile unsigned long lastPulseTime = 0; // time in ms of last pulse since turning on 
+const int pulsePerRev = 2; //amount of pulses for each revolution
+volatile unsigned long lastPulseTime = 0; // time in us
 volatile float omega = 0; // current speed
 
 // If the hall input is noisy (floating, loose wire, or electrical interference),

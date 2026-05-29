@@ -60,7 +60,7 @@ class Mode(Enum):
 # are application-side clamps to prevent obvious nonsense from PUI dial
 # accumulation. Tune once we know the real motor specs.
 WRAP_SPEED_MIN_RPM = 0.0
-WRAP_SPEED_MAX_RPM = 2000.0
+WRAP_SPEED_MAX_RPM = 3000.0
 FEED_SPEED_MIN_MMS = 0.0
 FEED_SPEED_MAX_MMS = 20.0
 
