@@ -28,9 +28,9 @@ void setup() {
 	Serial.begin(115200);
 	delay(500);
 
-	Wire.begin(I2C_SLAVE_ADDR, I2C_SDA, I2C_SCL, I2C_FREQ);
 	Wire.onReceive(onI2CReceive);
 	Wire.onRequest(onI2CRequest);
+  Wire.begin(I2C_SLAVE_ADDR, I2C_SDA, I2C_SCL, I2C_FREQ);
 
 	Serial.println("ESP32-H2 basic I2C serial bridge ready");
 	Serial.println("Slave address: 0x55");
