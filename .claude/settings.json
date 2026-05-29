@@ -5,7 +5,9 @@
       "Bash(venv/bin/python -c \"import PyQt6; print\\('PyQt6 ok in venv'\\)\")",
       "Bash(venv/bin/python -)",
       "Bash(venv/bin/python -m pytest tests/test_app_state.py tests/test_motor_spi.py -q)",
-      "Bash(venv/bin/python -m pytest tests/test_app_state.py::TestScaling::test_mms_to_units tests/test_app_state.py::TestPowerToggle::test_tp_on_sends_start_to_both_motors -q)"
+      "Bash(venv/bin/python -m pytest tests/test_app_state.py::TestScaling::test_mms_to_units tests/test_app_state.py::TestPowerToggle::test_tp_on_sends_start_to_both_motors -q)",
+      "Bash(git fetch *)",
+      "Bash(git push *)"
     ]
   }
 }
