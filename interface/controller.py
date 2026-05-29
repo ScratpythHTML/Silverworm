@@ -28,7 +28,7 @@ class Setpoints:
 
 # Bounds for manual speed input validation
 SPEED_A_MIN = 0.0
-SPEED_A_MAX = 10.0    # Feed motor: 0-10 RPM
+SPEED_A_MAX = 10.0    # Feed motor: 0-10 mm/s
 SPEED_B_MIN = 0.0
 SPEED_B_MAX = 3000.0  # Wrapper motor: 0-3000 RPM
 
