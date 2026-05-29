@@ -30,12 +30,6 @@ from enum import IntEnum
 from typing import List, Optional, Union
 
 from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtGui import QDoubleValidator, QFont
-from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QWidget,
-    QLineEdit,
-)
-from datetime import datetime
 
 
 # ----- enums -----------------------------------------------------------------
@@ -91,9 +85,8 @@ def build_test_movement(movement_type: int) -> bytes:
 
 def build_request_speed() -> bytes:
     """Ask the Arduino to reply with its current speed.
-    3 bytes total: command + 2 dummy bytes.
-    Arduino replies with [speedL, speedH] (no prefix) due to the 1-byte
-    SPI slave shift; the RPi reconstructs the prefix when parsing.
+    3 bytes total: command + 2 clock bytes. The current Arduino firmware
+    returns the queued speed packet on the next request transaction.
     """
     return bytes([CommandPrefix.REQUEST_SPEED, 0x00, 0x00])
 
@@ -101,17 +94,34 @@ def build_request_speed() -> bytes:
 def _normalize_spi_response(tx_data: bytes, raw: bytes) -> Optional[bytes]:
     """Convert a raw SPI transaction into a parseable response packet.
 
-    The real Arduino path can return a 1-byte shifted frame for current-speed
-    readback. When the command was REQUEST_SPEED, treat the trailing two bytes
-    as the speed payload and reconstruct the expected CURRENT_SPEED prefix.
+    Some Arduino SPI slave implementations return a reply that was queued by
+    the previous transaction. Accept properly framed replies first, then the
+    older shifted request-speed form used during bench bring-up. All-zero reads
+    are treated as "no reply" so the GUI does not display a fake 0 speed.
     """
     if not raw:
         return None
 
-    if raw[0] in (ResponsePrefix.CURRENT_SPEED, ResponsePrefix.ERROR, ResponsePrefix.SEQUENCE_STATUS):
-        return bytes(raw[:3])
+    raw = bytes(raw)
+    response_prefixes = (
+        ResponsePrefix.CURRENT_SPEED,
+        ResponsePrefix.ERROR,
+        ResponsePrefix.SEQUENCE_STATUS,
+    )
 
-    if tx_data and tx_data[0] == CommandPrefix.REQUEST_SPEED and len(raw) >= 3:
+    if raw[0] in response_prefixes:
+        return raw[:3]
+
+    if len(raw) >= 4 and raw[1] in response_prefixes:
+        return raw[1:4]
+
+    if (
+        tx_data
+        and tx_data[0] == CommandPrefix.REQUEST_SPEED
+        and len(raw) >= 3
+        and raw[0] == CommandPrefix.REQUEST_SPEED
+        and any(raw[1:3])
+    ):
         return bytes([ResponsePrefix.CURRENT_SPEED, raw[1], raw[2]])
 
     return None
@@ -346,58 +356,3 @@ class MotorController(QObject):
             else:
                 print(f"[SPI RX] UNKNOWN  raw={packet.hex(' ')}")
                 self.raw_bytes_received.emit(packet)
-
-
-# ----- UI metrics -----------------------------------------------------------
-
-class Mode(IntEnum):
-    MANUAL = 0
-    AUTO = 1
-
-
-class UIState(QObject):
-    def __init__(self):
-        super().__init__()
-        self._last_feed_feedback_ts = 0.0
-        self._last_wrap_feedback_ts = 0.0
-
-    def update_metrics(self, value: Union[int, float, None]) -> None:
-        if value is not None:
-            self._last_feed_feedback_ts = datetime.now().timestamp()
-            self._last_wrap_feedback_ts = datetime.now().timestamp()
-        self._value = value
-
-
-# ----- main window ----------------------------------------------------------
-
-class MainWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.app_state = AppState()
-        self.ui_state = UIState()
-        self._is_running = False
-
-    def _update_metrics(self) -> None:
-        """Periodic UI metric refresh.
-
-        - Manual mode: show the current setpoint as the actual value (no
-          real feedback path until the Arduino reports `current_speed`).
-        - If no recent SPI feedback has been received, panels show `N/A`.
-        """
-        if not self._is_running:
-            return
-
-        if self.app_state.mode == Mode.MANUAL:
-            self.feed_motor_panel.update_metrics(self.app_state.feed_speed_mms)
-            self.wrap_motor_panel.update_metrics(self.app_state.wrap_speed_rpm)
-            return
-
-        # If no feedback has arrived recently, explicitly show N/A.
-        now_ts = datetime.now().timestamp()
-        stale_seconds = 1.5
-
-        if (now_ts - getattr(self, "_last_feed_feedback_ts", 0.0)) > stale_seconds:
-            self.feed_motor_panel.update_metrics(None)
-
-        if (now_ts - getattr(self, "_last_wrap_feedback_ts", 0.0)) > stale_seconds:
-            self.wrap_motor_panel.update_metrics(None)

@@ -219,10 +219,10 @@ class AnimatedMetricValue(QLabel):
         self._anim_timer.timeout.connect(self._animate_step)
 
     def set_value(self, value: Optional[float], unit: str = "", decimals: int = 1, animate: bool = True):
-        """Set displayed value. Pass `None` to show `N/A`."""
+        """Set displayed value. Pass `None` to show an empty placeholder."""
         if value is None:
             self._is_na = True
-            self._unit = ""
+            self._unit = unit
             self._decimals = 1
             try:
                 self._anim_timer.stop()
@@ -263,6 +263,6 @@ class AnimatedMetricValue(QLabel):
 
     def _update_display(self):
         if self._is_na:
-            self.setText("N/A")
+            self.setText(f"-- {self._unit}" if self._unit else "--")
             return
         self.setText(f"{self._current_value:.{self._decimals}f} {self._unit}")

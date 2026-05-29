@@ -69,6 +69,9 @@ bool setReply(byte a, byte b = 0, byte c = 0, byte length = 1) {
     replyBuffer[2] = c;
     replyLength = length;
     replyIndex = 0;
+    if (replyLength > 0) {
+      SPI0.DATA = replyBuffer[replyIndex++];
+    }
     ok = true;
   }
   interrupts();
@@ -99,8 +102,11 @@ ISR(SPI0_INT_vect) {
     else if (c == 0x02) {
       expectedCommandLength = 2;
     } 
-    else if (c == 0x04|| c == 0x05) {
-      expectedCommandLength = 1;
+    else if (c == 0x04) {
+      expectedCommandLength = 2;
+    }
+    else if (c == 0x05) {
+      expectedCommandLength = 3;
     } 
     else {
       bufferIndex = 0;
@@ -262,19 +268,20 @@ void loop() {
       }
 
       case 0x05: {
-        unsigned long now = millis();
+        unsigned long lastPulseUs;
+        float measuredRadS;
+        noInterrupts();
+        lastPulseUs = lastPulseTime;
+        measuredRadS = currentSpeed;
+        interrupts();
 
-        int speed;
-
-        if (lastPulseTime > 0 && (now - lastPulseTime) > 2000) {
-          speed = -5;
-        } else {
-          speed = (int)currentSpeed;
+        int speedRpm = 0;
+        if (lastPulseUs > 0 && (micros() - lastPulseUs) <= 2000000UL) {
+          speedRpm = (int)(measuredRadS * 60.0 / (2.0 * PI));
         }
+        speedRpm = constrain(speedRpm, 0, 65535);
 
-        // setReply(speed & 0xFF, (speed >> 8) & 0xFF, 0, 2);
-        setReply(2,3, 4,3);
-        Serial.println("speed reply queued");
+        setReply(0x01, speedRpm & 0xFF, (speedRpm >> 8) & 0xFF, 3);
         break;
       }
 
@@ -303,5 +310,4 @@ void loop() {
   targetPWM = constrain(targetPWM, -255, 255);
   motor.setSpeed((int)targetPWM);
 }
-
 

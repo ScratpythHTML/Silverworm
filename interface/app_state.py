@@ -72,7 +72,7 @@ FEED_MMS_UNITS_PER = 1         # 1 unit = 1 mm/s (Arduino expects raw mm/s)
 
 
 def _scale_to_units(value: float, units_per: int) -> int:
-    return max(0, min(SPEED_MAX, int(round(value * units_per))))
+    return max(0, min(SPEED_MAX, int(value * units_per + 0.5)))
 
 
 def rpm_to_units(rpm: float) -> int:

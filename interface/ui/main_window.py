@@ -677,6 +677,10 @@ class MainWindow(QMainWindow):
         if running:
             try:
                 self._is_running = True
+                self._last_feed_feedback_ts = 0.0
+                self._last_wrap_feedback_ts = 0.0
+                self.feed_motor_panel.update_metrics(None)
+                self.wrap_motor_panel.update_metrics(None)
                 self.controls.set_running(True)
                 self.feed_motor_panel.set_running(True)
                 self.wrap_motor_panel.set_running(True)
@@ -714,9 +718,13 @@ class MainWindow(QMainWindow):
                     pass
         else:
             self._is_running = False
+            self._last_feed_feedback_ts = 0.0
+            self._last_wrap_feedback_ts = 0.0
             self.controls.set_running(False)
             self.feed_motor_panel.set_running(False)
             self.wrap_motor_panel.set_running(False)
+            self.feed_motor_panel.update_metrics(None)
+            self.wrap_motor_panel.update_metrics(None)
 
             self.status_indicator.set_color(Theme.ERROR)
             self.status_indicator.stop()
@@ -740,16 +748,11 @@ class MainWindow(QMainWindow):
     def _update_metrics(self) -> None:
         """Periodic UI metric refresh.
 
-        - Manual mode: show the current setpoint as the actual value (no
-          real feedback path until the Arduino reports `current_speed`).
-        - Auto mode: show N/A when no recent SPI feedback has arrived.
+        Only real SPI feedback is allowed to populate the actual-speed fields.
+        When feedback goes stale, clear the readout instead of mirroring the
+        current setpoint.
         """
         if not self._is_running:
-            return
-
-        if self.app_state.mode == Mode.MANUAL:
-            self.feed_motor_panel.update_metrics(self.app_state.feed_speed_mms)
-            self.wrap_motor_panel.update_metrics(self.app_state.wrap_speed_rpm)
             return
 
         now_ts = datetime.now().timestamp()

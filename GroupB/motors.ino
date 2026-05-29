@@ -85,7 +85,7 @@ void loop() {
   motorSpiPoll();
   stage.poll();
   bldc.poll();
-  motorSpiSetFeedbackRpm(0x01);
+  motorSpiSetFeedbackRpm(bldc.feedbackRpm());
 
   // ── SPI commands (normal path) ────────────────────────────────────────────
   uint8_t stopType = motorSpiTakeStopType();
