@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.theme import Theme
+from typing import Optional
 
 
 class AnimatedButton(QPushButton):
@@ -209,6 +210,7 @@ class AnimatedMetricValue(QLabel):
         self._target_value = 0.0
         self._unit = ""
         self._decimals = 1
+        self._is_na = False
 
         self.setFont(QFont("Consolas", 18, QFont.Weight.Bold))
 
@@ -216,18 +218,38 @@ class AnimatedMetricValue(QLabel):
         self._anim_timer.setInterval(16)  # ~60fps
         self._anim_timer.timeout.connect(self._animate_step)
 
-    def set_value(self, value: float, unit: str = "", decimals: int = 1, animate: bool = True):
-        self._target_value = value
+    def set_value(self, value: Optional[float], unit: str = "", decimals: int = 1, animate: bool = True):
+        """Set displayed value. Pass `None` to show `N/A`."""
+        if value is None:
+            self._is_na = True
+            self._unit = ""
+            self._decimals = 1
+            try:
+                self._anim_timer.stop()
+            except Exception:
+                pass
+            self._update_display()
+            return
+
+        self._is_na = False
+        self._target_value = float(value)
         self._unit = unit
         self._decimals = decimals
 
         if animate and abs(self._target_value - self._current_value) > 0.01:
             self._anim_timer.start()
         else:
-            self._current_value = value
+            self._current_value = self._target_value
             self._update_display()
 
     def _animate_step(self):
+        if self._is_na:
+            try:
+                self._anim_timer.stop()
+            except Exception:
+                pass
+            return
+
         diff = self._target_value - self._current_value
         step = diff * 0.15
 
@@ -240,4 +262,7 @@ class AnimatedMetricValue(QLabel):
         self._update_display()
 
     def _update_display(self):
+        if self._is_na:
+            self.setText("N/A")
+            return
         self.setText(f"{self._current_value:.{self._decimals}f} {self._unit}")
