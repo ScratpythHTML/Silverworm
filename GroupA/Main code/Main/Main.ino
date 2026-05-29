@@ -134,7 +134,7 @@ ISR(SPI0_INT_vect) {
 }
 
 void setup() {
-  Serial.begin(9600);
+  // Serial.begin(9600);
 
   pinMode(HALL, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(HALL), hallISR, FALLING);
@@ -254,7 +254,7 @@ void loop() {
       }
 
       case 0x04: {
-        Serial.println("test command received");
+        // Serial.println("test command received");
         setReply(0x03, 0x04, 0x00, 2);
         break;
       }
@@ -316,10 +316,10 @@ void loop() {
   targetPWM = constrain(targetPWM, 0, 225);
   motor.setSpeed((int)targetPWM);
 
-  Serial.print(currentSpeed * 60.0 / (2.0 * 3.14156));
-  Serial.print(",");
-  Serial.print(omega_target * 60.0 / (2.0 * 3.14156));
-  Serial.print(",");
-  Serial.println(targetPWM);
+  // Serial.print(currentSpeed * 60.0 / (2.0 * 3.14156));
+  // Serial.print(",");
+  // Serial.print(omega_target * 60.0 / (2.0 * 3.14156));
+  // Serial.print(",");
+  // Serial.println(targetPWM);
 }
 
