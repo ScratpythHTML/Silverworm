@@ -222,15 +222,15 @@ class TestPowerToggle:
 
     def test_tp_on_sends_start_to_both_motors(self, state_with_motors):
         state, wrap_t, feed_t = state_with_motors
-        state.gui_set_wrap_speed(2.0)        # 2.0 rpm × 10 = 20 units
-        state.gui_set_feed_speed(0.5)        # 0.5 mm/s × 1000 = 500 units
+        state.gui_set_wrap_speed(2.0)        # raw RPM units
+        state.gui_set_feed_speed(0.5)        # raw mm/s units, rounded to nearest int
         wrap_t.sent.clear()
         feed_t.sent.clear()
 
         state.apply_power_toggle()  # → on
 
-        assert wrap_t.sent[0] == bytes([CommandPrefix.START]) + (20).to_bytes(2, "little")
-        assert feed_t.sent[0] == bytes([CommandPrefix.START]) + (500).to_bytes(2, "little")
+        assert wrap_t.sent[0] == bytes([CommandPrefix.START]) + (2).to_bytes(2, "little")
+        assert feed_t.sent[0] == bytes([CommandPrefix.START]) + (1).to_bytes(2, "little")
 
     def test_tp_off_sends_stop_to_both_motors(self, state_with_motors):
         state, wrap_t, feed_t = state_with_motors
@@ -258,8 +258,8 @@ class TestSpeedChangePropagation:
 
         state.apply_dial_change(DialChange(1, +1, DetentSize.LARGE))  # +1.0 rpm
 
-        # 0 + 1.0 rpm → 10 units
-        assert wrap_t.sent[-1] == bytes([CommandPrefix.SET_SPEED]) + (10).to_bytes(2, "little")
+        # 0 + 1.0 rpm → 1 raw RPM unit
+        assert wrap_t.sent[-1] == bytes([CommandPrefix.SET_SPEED]) + (1).to_bytes(2, "little")
 
     def test_dial_change_while_off_does_not_send(self, state_with_motors):
         state, wrap_t, _ = state_with_motors
@@ -343,8 +343,7 @@ class TestScaling:
         assert rpm_to_units(-5.0) == 0
 
     def test_rpm_to_units_rounds(self):
-        # 2.5 rpm × 10 = 25 units
-        assert rpm_to_units(2.5) == 25
+        assert rpm_to_units(2.5) == 3
 
     def test_mms_to_units(self):
-        assert mms_to_units(0.5) == 500
+        assert mms_to_units(0.5) == 1

@@ -28,6 +28,9 @@ bool setReply(byte a, byte b, byte c, byte length) {
     replyBuffer[2] = c;
     replyLength = length;
     replyIndex = 0;
+    if (replyLength > 0) {
+      SPDR = replyBuffer[replyIndex++];
+    }
     ok = true;
   }
   interrupts();
@@ -46,10 +49,10 @@ ISR(SPI_STC_vect) {
   if (bufferIndex == 1) {
     if (c == 0x01 || c == 0x03) {
       expectedCommandLength = 3;
-    } else if (c == 0x02) {
+    } else if (c == 0x02 || c == 0x04) {
       expectedCommandLength = 2;
-    } else if (c == 0x04 || c == 0x05) {
-      expectedCommandLength = 1;  // single-byte commands: kTest, kQuery
+    } else if (c == 0x05) {
+      expectedCommandLength = 3;  // query frame includes two clock bytes
     } else {
       bufferIndex = 0;
       expectedCommandLength = 0;
