@@ -144,6 +144,15 @@ class SequenceStatus:
     status: int
 
 
+@dataclass(frozen=True)
+class PollResult:
+    """One poll's worth of traffic, for the caller to log. `rx`/`speed` are
+    None when the motor sent no reply this tick."""
+    tx: bytes
+    rx: Optional[bytes]
+    speed: Optional[int]
+
+
 ArduinoResponse = Union[CurrentSpeed, ErrorResponse, SequenceStatus]
 
 
@@ -301,9 +310,10 @@ class MotorController(QObject):
     sequence_status = pyqtSignal(int)
     raw_bytes_received = pyqtSignal(bytes)   # emitted for unrecognised packets
 
-    def __init__(self, transport: SPITransport, parent=None):
+    def __init__(self, transport: SPITransport, name: str = "MOTOR", parent=None):
         super().__init__(parent)
         self._transport = transport
+        self.name = name
 
     def open(self) -> None:
         self._transport.open()
@@ -313,46 +323,51 @@ class MotorController(QObject):
 
     def start(self, speed: int) -> None:
         pkt = build_start(speed)
-        print(f"[SPI TX] START  speed={speed}  raw={pkt.hex(' ')}")
+        print(f"[SPI TX] {self.name} START  speed={speed}  raw={pkt.hex(' ')}")
         self._transport.send(pkt)
 
     def stop(self, stop_type: StopType = StopType.RAMP_DOWN) -> None:
         pkt = build_stop(stop_type)
-        print(f"[SPI TX] STOP   type={stop_type.name}  raw={pkt.hex(' ')}")
+        print(f"[SPI TX] {self.name} STOP   type={stop_type.name}  raw={pkt.hex(' ')}")
         self._transport.send(pkt)
 
     def set_speed(self, speed: int) -> None:
         pkt = build_set_speed(speed)
-        print(f"[SPI TX] SET_SPEED  speed={speed}  raw={pkt.hex(' ')}")
+        print(f"[SPI TX] {self.name} SET_SPEED  speed={speed}  raw={pkt.hex(' ')}")
         self._transport.send(pkt)
 
     def test_movement(self, movement_type: int) -> None:
         pkt = build_test_movement(movement_type)
-        print(f"[SPI TX] TEST_MOVEMENT  type={movement_type}  raw={pkt.hex(' ')}")
+        print(f"[SPI TX] {self.name} TEST_MOVEMENT  type={movement_type}  raw={pkt.hex(' ')}")
         self._transport.send(pkt)
 
-    def request_speed(self) -> None:
+    def request_speed(self) -> bytes:
+        """Send a REQUEST_SPEED packet and return the bytes sent. No print —
+        this fires 10x/s from poll(); the caller logs it (throttled)."""
         pkt = build_request_speed()
-        print(f"[SPI TX] REQUEST_SPEED  raw={pkt.hex(' ')}")
         self._transport.send(pkt)
+        return pkt
 
-    def poll(self) -> None:
+    def poll(self) -> PollResult:
         """Request current speed, then drain pending response packets.
 
         Call this from a timer to keep the current-speed readout updated.
+        Emits the same Qt signals as before; returns the TX/RX bytes and
+        parsed speed so the caller can log a combined line.
         """
-        self.request_speed()
+        tx = self.request_speed()
+        rx: Optional[bytes] = None
+        speed: Optional[int] = None
         for packet in self._transport.read():
+            rx = packet
             resp = parse_arduino_response(packet)
             if isinstance(resp, CurrentSpeed):
-                print(f"[SPI RX] CURRENT_SPEED  speed={resp.speed}  raw={packet.hex(' ')}")
+                speed = resp.speed
                 self.current_speed.emit(resp.speed)
             elif isinstance(resp, ErrorResponse):
-                print(f"[SPI RX] ERROR  code={resp.error_code}  raw={packet.hex(' ')}")
                 self.error_received.emit(resp.error_code)
             elif isinstance(resp, SequenceStatus):
-                print(f"[SPI RX] SEQ_STATUS  status={resp.status}  raw={packet.hex(' ')}")
                 self.sequence_status.emit(resp.status)
             else:
-                print(f"[SPI RX] UNKNOWN  raw={packet.hex(' ')}")
                 self.raw_bytes_received.emit(packet)
+        return PollResult(tx=tx, rx=rx, speed=speed)

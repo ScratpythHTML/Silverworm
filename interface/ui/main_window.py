@@ -65,6 +65,11 @@ from ui.startup_dialog import StartupConfigDialog
 from ui.detent_dialog import DetentConfigDialog
 
 
+# Motors are polled at 10 Hz; print the combined SPI line every Nth poll
+# (10 → once per second) to keep the terminal readable.
+POLL_PRINT_EVERY = 10
+
+
 class MainWindow(QMainWindow):
     """Main application window — coordinates UI ↔ AppState ↔ hardware."""
 
@@ -139,8 +144,8 @@ class MainWindow(QMainWindow):
         self._transports = build_transports(self.config)
 
         self.pui_listener = PUIListener(self._transports.pui, parent=self)
-        self.wrap_motor_controller = MotorController(self._transports.wrap_spi, parent=self)
-        self.feed_motor_controller = MotorController(self._transports.feed_spi, parent=self)
+        self.wrap_motor_controller = MotorController(self._transports.wrap_spi, name="WRAP", parent=self)
+        self.feed_motor_controller = MotorController(self._transports.feed_spi, name="FEED", parent=self)
 
         # Motor SPI transports must be opened before AppState can drive them.
         # A real hardware failure raises here; we catch and continue with mocks-ish
@@ -173,6 +178,7 @@ class MainWindow(QMainWindow):
         # Poll motor controllers for response packets at 10 Hz.
         # No-op on MockSPITransport unless tests inject responses; on real
         # hardware this is what drives the actual-speed readout.
+        self._poll_print_counter = 0
         self.motor_poll_timer = QTimer()
         self.motor_poll_timer.setInterval(100)
         self.motor_poll_timer.timeout.connect(self._poll_motors)
@@ -575,15 +581,33 @@ class MainWindow(QMainWindow):
         )
 
     def _poll_motors(self) -> None:
+        # Poll both motors every tick (10 Hz) so the GUI speed readouts stay
+        # live; only print the combined line every Nth tick (~1 s).
+        wrap = feed = None
         try:
-            self.wrap_motor_controller.poll()
+            wrap = self.wrap_motor_controller.poll()
         except Exception as e:
             # Swallow per-tick errors so a transient SPI glitch doesn't kill the timer.
             self.alert_log.log(f"Wrap poll error: {e}", "warning")
         try:
-            self.feed_motor_controller.poll()
+            feed = self.feed_motor_controller.poll()
         except Exception as e:
             self.alert_log.log(f"Feed poll error: {e}", "warning")
+
+        self._poll_print_counter += 1
+        if self._poll_print_counter % POLL_PRINT_EVERY == 0:
+            print(f"{self._format_poll_field('WRAP', wrap)}"
+                  f"  ||  {self._format_poll_field('FEED', feed)}")
+
+    @staticmethod
+    def _format_poll_field(label: str, r) -> str:
+        """One motor's half of the combined SPI poll line, aligned columns."""
+        if r is None:
+            return f"{label}  TX:--------  RX:--------  spd=---"
+        tx = r.tx.hex(' ')
+        rx = r.rx.hex(' ') if r.rx else "--------"
+        spd = r.speed if r.speed is not None else "---"
+        return f"{label}  TX:{tx}  RX:{rx:<8}  spd={spd}"
 
     # ------------------------------------------------------------------
     # Manual-speed SET buttons
