@@ -191,3 +191,16 @@ class TestSetpointSelection:
         last = record["setpoints"][-1]
         assert last.speed_a == 5.0
         assert last.speed_b == 750.0
+
+
+# ---------------------------------------------------------------------------
+# Single source of truth — bounds are aliased from config
+# ---------------------------------------------------------------------------
+
+def test_bounds_aliased_from_config():
+    """controller bounds must derive from config (the single source)."""
+    import config
+    assert SPEED_A_MIN == config.FEED_SPEED_MIN_MMS   # Feed motor
+    assert SPEED_A_MAX == config.FEED_SPEED_MAX_MMS
+    assert SPEED_B_MIN == config.WRAP_SPEED_MIN_RPM   # Wrapper motor
+    assert SPEED_B_MAX == config.WRAP_SPEED_MAX_RPM

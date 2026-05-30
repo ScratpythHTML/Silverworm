@@ -481,6 +481,11 @@ class MainWindow(QMainWindow):
         self.feed_motor_panel.manual_speed_changed.connect(self._on_feed_motor_set)
         self.wrap_motor_panel.manual_speed_changed.connect(self._on_wrap_motor_set)
 
+        self.feed_motor_panel.manual_speed_rejected.connect(
+            lambda msg: self.alert_log.log(f"Feed motor: {msg}", "warning"))
+        self.wrap_motor_panel.manual_speed_rejected.connect(
+            lambda msg: self.alert_log.log(f"Wrapper motor: {msg}", "warning"))
+
     def _connect_app_state_signals(self) -> None:
         """AppState is the single source of truth. GUI buttons → AppState;
         PUI events → AppState; UI updates ← AppState signals."""

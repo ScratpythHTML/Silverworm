@@ -23,6 +23,14 @@ APP_NAME = "Silverworm"
 CONFIG_FILENAME = "config.json"
 
 
+# Manual-speed input bounds — single source of truth, shared by app_state,
+# controller, and the UI motor panels. Change here to affect all three.
+WRAP_SPEED_MIN_RPM = 0.0
+WRAP_SPEED_MAX_RPM = 3000.0   # Wrapper motor (RPM)
+FEED_SPEED_MIN_MMS = 0.0
+FEED_SPEED_MAX_MMS = 20.0     # Feed motor (mm/s)
+
+
 @dataclass
 class DetentConfig:
     """
@@ -31,9 +39,9 @@ class DetentConfig:
     The PUI sends "D1±N" where N ∈ {1,2,3} selects the detent size and the
     sign selects the direction. Each (dial, size) maps to an increment here.
     """
-    dial1_small_rpm: float = 0.1
-    dial1_medium_rpm: float = 0.5
-    dial1_large_rpm: float = 1.0
+    dial1_small_rpm: float = 5
+    dial1_medium_rpm: float = 20
+    dial1_large_rpm: float = 100
     dial2_small_mms: float = 0.01
     dial2_medium_mms: float = 0.05
     dial2_large_mms: float = 0.1
