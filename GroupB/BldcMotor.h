@@ -31,6 +31,7 @@ public:
   int targetRpm()   const { return targetRpm_; }
   int currentRpm()  const { return currentRpm_; }
   int feedbackRpm() const { return feedbackRpm_; }
+  int smoothedRpm() const { return smoothedRpm_; }
 
 private:
 #if MOTORS_ENABLED
@@ -38,15 +39,22 @@ private:
   void ensureClosedLoop();
   void applyTargetVelocity();
 
-  SoftwareSerial odriveSerial_;
+  SoftwareSerial odriveSerial_;  // D8 RX, D9 TX
   ODriveUART odrive_;
 #endif
 
-  int targetRpm_  = 0;
-  int currentRpm_ = 0;
+  int targetRpm_   = 0;
+  int currentRpm_  = 0;
   int feedbackRpm_ = 0;
+  int smoothedRpm_ = 0;
   bool armed_ = false;
   bool fault_ = false;
+
+  // 1-second moving average: 20 slots at 50 ms/sample
+  static constexpr uint8_t kAvgLen = 20;
+  int     velBuf_[kAvgLen] = {};
+  uint8_t velBufIdx_       = 0;
+  long    velBufSum_       = 0;
 
   unsigned long lastFeedbackMs_ = 0;
 };

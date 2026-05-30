@@ -46,7 +46,7 @@
 // Collecting spool BLDC (42BSA62 via oDrive S1)
 // =============================================================================
 
-#define BLDC_RATED_RPM             3000
+#define BLDC_RATED_RPM             10
 #define ODRIVE_FEEDBACK_INTERVAL_MS  50
 #define SPI_SPEED_RAMP_RPM_S       500
 
@@ -55,6 +55,7 @@
 // =============================================================================
 
 #define ENC2_RPM_FILTER_MS         100
+#define ENC2_PLOT_MS               50   // Serial Plotter sample interval (ms)
 
 // =============================================================================
 // SPI / bench
@@ -68,6 +69,6 @@
 // =============================================================================
 
 // Set to 1 to compile BldcMotor (ODriveUART + SoftwareSerial) and LinearStage.
-// Keep 0 when doing SPI-only development — avoids the PCINT2_vect conflict
-// between SoftwareSerial and ShaftEncoder.
-#define MOTORS_ENABLED             0
+// When 1, SoftwareSerial owns PCINT2_vect; ShaftEncoder's PCINT2 ISR is
+// compiled out (see ShaftEncoder.cpp) so the encoder on D5–D7 is inactive.
+#define MOTORS_ENABLED             1
