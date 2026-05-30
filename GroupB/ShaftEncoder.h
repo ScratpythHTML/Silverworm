@@ -9,7 +9,7 @@ public:
   void poll();
 
   long count() const;
-  int rpm() const;
+  float rpm() const;
   void resetCount();
 
 private:
@@ -18,5 +18,5 @@ private:
 
   long lastCount_ = 0;
   unsigned long lastSampleMs_ = 0;
-  int rpm_ = 0;
+  float rpm_ = 0.0f;
 };
