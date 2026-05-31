@@ -80,10 +80,17 @@ class PitchDetectionPipeline(QObject):
         self._timer.start(self.interval_ms)
 
     def stop(self):
-        """Stop pitch detection"""
+        """Stop pitch detection and release the retained frame."""
         self._enabled = False
         self._timer.stop()
         self._consecutive_low_count = 0
+        # Drop the retained frame so we don't pin a full-resolution image
+        # in memory while detection is idle (e.g. in manual mode).
+        self._latest_frame = None
+
+    def is_active(self) -> bool:
+        """True while the periodic detection timer is running."""
+        return self._timer.isActive()
 
     def set_interval(self, interval_ms: int):
         """

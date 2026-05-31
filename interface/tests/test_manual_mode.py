@@ -6,7 +6,8 @@ user acknowledgement.
 """
 
 import pytest
-from PyQt6.QtCore import QTimer
+from types import SimpleNamespace
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from processing.pipeline import PitchDetectionPipeline
 from ui.manual_mode_dialog import ManualModeBanner, ManualModeDialog
 import numpy as np
@@ -97,6 +98,111 @@ def test_manual_mode_dialog_modal(qapp):
     dialog = ManualModeDialog("LOW")
 
     assert dialog.isModal() is True
+
+
+def test_pipeline_clears_latest_frame_on_stop(qapp):
+    """stop() must release the retained frame so it isn't pinned in memory."""
+    pipeline = PitchDetectionPipeline(interval_ms=1000)
+    pipeline.update_frame(np.zeros((480, 640, 3), dtype=np.uint8))
+    assert pipeline._latest_frame is not None
+
+    pipeline.start()
+    assert pipeline.is_active()
+
+    pipeline.stop()
+    assert not pipeline.is_active()
+    assert pipeline._latest_frame is None
+
+
+# ---------------------------------------------------------------------------
+# MainWindow pitch-detection lifecycle (manual mode stops detection)
+# ---------------------------------------------------------------------------
+
+class _FakeWorker(QObject):
+    """Stand-in camera worker exposing only the frame_ready signal."""
+    frame_ready = pyqtSignal(np.ndarray)
+
+
+def _make_window_stub(*, running: bool, mode):
+    """Build a bare MainWindow with just the attributes the pitch-detection
+    helpers touch — avoids constructing the full window (camera/hardware)."""
+    from ui.main_window import MainWindow
+
+    mw = MainWindow.__new__(MainWindow)
+    mw._is_running = running
+    mw.app_state = SimpleNamespace(mode=mode)
+    mw.camera_worker = _FakeWorker()
+    mw._pitch_source = None
+    mw.pitch_pipeline = PitchDetectionPipeline(interval_ms=1000)
+    mw.alert_log = SimpleNamespace(log=lambda *a, **k: None)
+    return mw
+
+
+def test_mainwindow_starts_pitch_when_running_and_auto(qapp):
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.AUTO)
+
+    mw._start_pitch_detection_if_allowed()
+
+    assert mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is mw.camera_worker
+
+
+def test_mainwindow_does_not_start_pitch_in_manual(qapp):
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.MANUAL)
+
+    mw._start_pitch_detection_if_allowed()
+
+    assert not mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is None
+
+
+def test_mainwindow_does_not_start_pitch_when_stopped(qapp):
+    from app_state import Mode
+    mw = _make_window_stub(running=False, mode=Mode.AUTO)
+
+    mw._start_pitch_detection_if_allowed()
+
+    assert not mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is None
+
+
+def test_mainwindow_manual_mode_stops_pitch_detection(qapp):
+    """Entering manual mode while running must stop detection, drop the
+    retained frame, and disconnect the camera feed."""
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.AUTO)
+
+    mw._start_pitch_detection_if_allowed()
+    mw.pitch_pipeline.update_frame(np.zeros((480, 640, 3), dtype=np.uint8))
+    assert mw.pitch_pipeline.is_active()
+
+    mw._stop_pitch_detection()
+
+    assert not mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is None
+    assert mw.pitch_pipeline._latest_frame is None
+
+
+def test_mainwindow_no_duplicate_pitch_connection(qapp):
+    """Repeated start calls must not stack camera→pipeline connections."""
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.AUTO)
+
+    # Spy in place of update_frame *before* the connection is made, so the
+    # signal binds to the spy. One emit must deliver exactly once.
+    calls = []
+    mw.pitch_pipeline.update_frame = lambda frame: calls.append(frame)
+
+    mw._start_pitch_detection_if_allowed()
+    mw._start_pitch_detection_if_allowed()
+    mw._start_pitch_detection_if_allowed()
+
+    mw.camera_worker.frame_ready.emit(np.zeros((4, 4, 3), dtype=np.uint8))
+
+    assert len(calls) == 1
+    assert mw._pitch_source is mw.camera_worker
 
 
 def test_consecutive_low_threshold(qapp):

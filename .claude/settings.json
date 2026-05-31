@@ -7,7 +7,12 @@
       "Bash(venv/bin/python -m pytest tests/test_app_state.py tests/test_motor_spi.py -q)",
       "Bash(venv/bin/python -m pytest tests/test_app_state.py::TestScaling::test_mms_to_units tests/test_app_state.py::TestPowerToggle::test_tp_on_sends_start_to_both_motors -q)",
       "Bash(git fetch *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(QT_QPA_PLATFORM=offscreen python3 -m pytest tests/test_rolling_buffer.py -q)",
+      "Bash(QT_QPA_PLATFORM=offscreen python3 -m pytest tests/test_rolling_buffer.py tests/test_manual_mode.py -q)",
+      "Bash(QT_QPA_PLATFORM=offscreen python3 -m pytest tests -q)",
+      "Bash(QT_QPA_PLATFORM=offscreen python3 -c \"import py_compile; [py_compile.compile\\(f, doraise=True\\) for f in ['camera/rolling_buffer.py','processing/pipeline.py','ui/main_window.py']]; print\\('compile OK'\\)\")",
+      "Bash(QT_QPA_PLATFORM=offscreen python3 -c \"import ui.main_window; import camera; print\\('import OK; RollingBuffer:', camera.RollingBuffer.__name__\\)\")"
     ]
   }
 }

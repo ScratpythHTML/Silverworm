@@ -87,11 +87,20 @@ class MainWindow(QMainWindow):
         self._active_camera: str = "microscope"
         self._current_raw_frame: Optional[np.ndarray] = None
         self.pitch_pipeline = PitchDetectionPipeline(interval_ms=2000, parent=self)
+        # Camera worker currently feeding the pitch pipeline (None = none).
+        self._pitch_source: Optional[CameraWorker] = None
+        self._buffer_log_counter = 0
+        self._last_incident_save_ts: float = 0.0
         self.manual_banner: Optional[ManualModeBanner] = None
 
-        # Storage and rolling buffer
-        self.rolling_buffer = RollingBuffer(window_seconds=300.0)
+        # Storage + disk-backed rolling recorder. Footage is spooled to flash
+        # (a temp dir under the recordings folder), NOT RAM, and is only kept
+        # permanently on a sudden error (see _persist_recording).
         self.storage = StorageManager()
+        self.rolling_buffer = RollingBuffer(
+            temp_dir=self.storage.recordings_dir / "tmp",
+            window_seconds=180.0,
+        )
         self._snapshot_dir = self._get_default_pictures_dir()
 
         # Legacy setpoint controller + UART transport (still used by the
@@ -361,7 +370,7 @@ class MainWindow(QMainWindow):
         snapshot_action.setShortcut("Ctrl+S")
         snapshot_action.triggered.connect(self._on_snapshot)
 
-        recording_action = file_menu.addAction("Save Last 5-Minute Recording")
+        recording_action = file_menu.addAction("Save Recent Recording")
         recording_action.setShortcut("Ctrl+R")
         recording_action.triggered.connect(self._on_save_recording)
 
@@ -483,11 +492,16 @@ class MainWindow(QMainWindow):
             self.feed_motor_panel.set_manual_mode(is_manual)
             self.wrap_motor_panel.set_manual_mode(is_manual)
             if is_manual:
+                # Manual mode owns the motors; pitch detection must not keep
+                # consuming frames or running in the background.
+                self._stop_pitch_detection()
                 self._manual_overlay_panel.show()
                 self._recompute_pitch_overlay()
             else:
                 self._manual_overlay_panel.hide()
                 self.camera.clear_pitch_overlay()
+                # Resume only if the machine is running (no-op otherwise).
+                self._start_pitch_detection_if_allowed()
 
         def on_power(on: bool):
             self.alert_log.log(
@@ -526,6 +540,10 @@ class MainWindow(QMainWindow):
         )
         self.app_state.motor_error.connect(
             lambda err: self.alert_log.log(f"Motor error: {err}", "error")
+        )
+        # A motor fault is a "sudden error" — keep the recent footage.
+        self.app_state.motor_error.connect(
+            lambda err: self._persist_recording("motor_error")
         )
         self.app_state.mode_change_blocked.connect(
             lambda reason: self.alert_log.log(reason, "warning")
@@ -689,19 +707,8 @@ class MainWindow(QMainWindow):
                 self.metrics_timer.start(150)
                 self.graph_timer.start(500)
 
-                if self.camera_worker and not hasattr(self, "_pitch_connected"):
-                    try:
-                        self.camera_worker.frame_ready.connect(self.pitch_pipeline.update_frame)
-                        self._pitch_connected = True
-                        self.alert_log.log("Pitch detection connected to camera", "info")
-                    except Exception as e:
-                        self.alert_log.log(f"Failed to connect pitch detection: {e}", "warning")
-
-                try:
-                    self.pitch_pipeline.start()
-                    self.alert_log.log("Pitch detection started", "info")
-                except Exception as e:
-                    self.alert_log.log(f"Failed to start pitch detection: {e}", "warning")
+                # Only runs detection if we're also in AUTO mode.
+                self._start_pitch_detection_if_allowed()
 
                 self.alert_log.log("System started — wrapping process initiated", "success")
 
@@ -726,12 +733,81 @@ class MainWindow(QMainWindow):
             self.metrics_timer.stop()
             self.graph_timer.stop()
 
-            try:
-                self.pitch_pipeline.stop()
-                self.alert_log.log("Pitch detection stopped", "info")
-            except Exception:
-                pass
+            self._stop_pitch_detection()
             self.alert_log.log("System stopped", "warning")
+
+    # ------------------------------------------------------------------
+    # Pitch-detection lifecycle
+    # ------------------------------------------------------------------
+
+    def _start_pitch_detection_if_allowed(self) -> None:
+        """Start pitch detection only when the machine is RUNNING and in AUTO.
+
+        Connects the active camera's frames to the pipeline exactly once
+        (tracked via ``_pitch_source``) and starts the periodic timer. Safe
+        to call repeatedly — it no-ops if already running or not allowed.
+        """
+        if not self._is_running or self.app_state.mode != Mode.AUTO:
+            return
+        if self.camera_worker is None:
+            return
+        if self._pitch_source is None:
+            self.camera_worker.frame_ready.connect(self.pitch_pipeline.update_frame)
+            self._pitch_source = self.camera_worker
+        if not self.pitch_pipeline.is_active():
+            self.pitch_pipeline.start()
+            self.alert_log.log("Pitch detection started", "info")
+
+    def _stop_pitch_detection(self) -> None:
+        """Stop pitch detection: stop the timer, drop the retained frame, and
+        disconnect the camera feed so no frames are consumed in the background."""
+        was_running = self.pitch_pipeline.is_active() or self._pitch_source is not None
+        self.pitch_pipeline.stop()  # also clears the retained frame
+        if self._pitch_source is not None:
+            try:
+                self._pitch_source.frame_ready.disconnect(self.pitch_pipeline.update_frame)
+            except (TypeError, RuntimeError):
+                pass  # already disconnected / worker gone
+            self._pitch_source = None
+        if was_running:
+            self.alert_log.log("Pitch detection stopped", "info")
+
+    def _rewire_pitch_source(self) -> None:
+        """Move the pitch frame feed to the active camera after a toggle.
+        Only meaningful while pitch detection is active."""
+        if self._pitch_source is self.camera_worker:
+            return
+        if self._pitch_source is not None:
+            try:
+                self._pitch_source.frame_ready.disconnect(self.pitch_pipeline.update_frame)
+            except (TypeError, RuntimeError):
+                pass
+        if self.camera_worker is not None:
+            self.camera_worker.frame_ready.connect(self.pitch_pipeline.update_frame)
+        self._pitch_source = self.camera_worker
+
+    # ------------------------------------------------------------------
+    # Incident recording (persist temp footage only on a sudden error)
+    # ------------------------------------------------------------------
+
+    def _persist_recording(self, reason: str) -> None:
+        """Flush the rolling temp footage to a permanent MP4. Debounced so a
+        burst of errors doesn't spawn many overlapping saves."""
+        now = datetime.now().timestamp()
+        if now - self._last_incident_save_ts < 20.0:
+            return
+        self._last_incident_save_ts = now
+
+        path = self.storage.timestamped_path(
+            self.storage.recordings_dir, f"incident_{reason}", "mp4"
+        )
+        try:
+            if self.rolling_buffer.save(path):
+                self.alert_log.log(f"Incident recording saved: {path.name}", "success")
+            else:
+                self.alert_log.log("Incident recording: no footage to save", "warning")
+        except Exception as e:
+            self.alert_log.log(f"Incident recording failed: {e}", "error")
 
     # ------------------------------------------------------------------
     # Metric / graph ticks
@@ -855,6 +931,16 @@ class MainWindow(QMainWindow):
 
     def _on_raw_frame(self, frame: np.ndarray) -> None:
         self._current_raw_frame = frame
+        # Occasional recorder telemetry (~every 600 frames ≈ 20 s @30fps).
+        self._buffer_log_counter += 1
+        if self._buffer_log_counter >= 600:
+            self._buffer_log_counter = 0
+            mb = self.rolling_buffer.estimated_bytes / (1024 * 1024)
+            self.alert_log.log(
+                f"Recording buffer: {self.rolling_buffer.segment_count} segments, "
+                f"{self.rolling_buffer.duration_seconds:.0f}s on disk, ~{mb:.0f} MB",
+                "info",
+            )
 
     def _on_camera_toggle(self) -> None:
         """Switch the displayed feed between microscope and external webcam."""
@@ -870,6 +956,8 @@ class MainWindow(QMainWindow):
             self._secondary_worker.frame_ready.connect(self._on_raw_frame)
             self._active_camera = "webcam"
             self.camera_worker = self._secondary_worker
+            if self._pitch_source is not None:
+                self._rewire_pitch_source()
             self._cam_toggle_btn.setText("Switch to Microscope")
             self.alert_log.log("Camera feed → webcam", "info")
             self._cam_warning_label.hide()
@@ -885,6 +973,8 @@ class MainWindow(QMainWindow):
             self._primary_worker.frame_ready.connect(self._on_raw_frame)
             self._active_camera = "microscope"
             self.camera_worker = self._primary_worker
+            if self._pitch_source is not None:
+                self._rewire_pitch_source()
             self._cam_toggle_btn.setText("Switch to Webcam")
             self.alert_log.log("Camera feed → microscope", "info")
             self._cam_warning_label.hide()
@@ -894,6 +984,7 @@ class MainWindow(QMainWindow):
         if role == self._active_camera:
             self._cam_warning_label.setText(f"Camera error: {role}")
             self._cam_warning_label.show()
+            self._persist_recording("camera_error")
 
     # ------------------------------------------------------------------
     # Pitch results
@@ -936,6 +1027,9 @@ class MainWindow(QMainWindow):
                     confidence=result.confidence,
                     pitch_um=result.mean_pitch_um,
                 )
+            # A FAILED reading is a genuine fault — keep the recent footage.
+            if result.confidence == "FAILED":
+                self._persist_recording("pitch_failed")
         except Exception as e:
             self.alert_log.log(f"Error processing pitch result: {e}", "error")
 
@@ -1121,7 +1215,14 @@ class MainWindow(QMainWindow):
             self._primary_worker.stop()
         if self._secondary_worker:
             self._secondary_worker.stop()
-        self.pitch_pipeline.stop()
+        self._stop_pitch_detection()
+        # Workers are stopped — no more add_frame() — so it's safe to delete
+        # the temp footage. Routine recordings are not kept (see requirement:
+        # only persist on a sudden error).
+        try:
+            self.rolling_buffer.discard()
+        except Exception:
+            pass
         self.storage.shutdown()
         try:
             self.pui_listener.stop()
