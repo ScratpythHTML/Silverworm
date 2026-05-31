@@ -1,10 +1,8 @@
 #include <EEPROM.h>
-#include <SPI.h>
 #include "MotorSpiHandler.h"
 #include "LinearStage.h"
 #include "BldcMotor.h"
 #include "SpiProtocol.h"
-#include "ShaftEncoder.h"
 
 // EEPROM layout: [0..3] last known position (float), [4..7] current target (float)
 #define EEPROM_POS_ADDR    0
@@ -20,7 +18,6 @@
 
 LinearStage stage;
 BldcMotor   bldc;
-ShaftEncoder enc;
 
 // ── State machine ─────────────────────────────────────────────────────────────
 enum class MotorState : uint8_t {
@@ -49,7 +46,6 @@ float targetPos;
 bool  wasMoving        = false;
 unsigned long lastPosSaveMs = 0;
 unsigned long lastPrintMs   = 0;
-unsigned long lastPlotMs    = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -62,7 +58,6 @@ void setup() {
   stage.enable(true);
 
   bldc.begin();
-  enc.begin();
 
   // Restore last known position
   float lastPos = loadFloat(EEPROM_POS_ADDR, POS_A);
@@ -90,13 +85,11 @@ void loop() {
   motorSpiPoll();
   stage.poll();
   bldc.poll();
-  enc.poll();
-  motorSpiSetFeedbackRpm(0x01); // TODO: change this back to enc.rpm() after done testing
-
-   // ── SPI commands (normal path) ────────────────────────────────────────────
-   uint8_t stopType = motorSpiTakeStopType();
+  motorSpiSetFeedbackRpm(bldc.feedbackRpm());
 
   // ── SPI commands (normal path) ────────────────────────────────────────────
+  uint8_t stopType = motorSpiTakeStopType();
+
   int16_t spiRpm = 0;
   if (motorSpiTakeStartRpm(spiRpm)) {
     bldc.enable(true);
@@ -119,16 +112,12 @@ void loop() {
 
   // ── Serial test interface ─────────────────────────────────────────────────
   // Simulate any SpiCmd over Serial Monitor:
-  //   s          → kStart    resume oscillation from STOPPED
-  //   v <mm/s>   → kSetSpeed e.g. "v 25"
-  //   t <1|2|3>  → kTest     1=LinearWiggle  2=BldcPulse  3=LedBlink
-  //   1          → kStop kRampDown   (go to 0, save EEPROM on arrival)
-  //   2          → kStop kEmergency  (halt now, save EEPROM)
-  //   3          → kStop kCutPower   (halt now, save EEPROM)
-  // BLDC / oDrive test commands:
-  //   b?         → print oDrive status (armed, fault, target RPM, feedback RPM)
-  //   b <rpm>    → ramp spool to <rpm>  e.g. "b 200", "b 0" to stop
-  //   b-         → cutPower (disarms oDrive axis)
+  //   s          → kStart (0x01)   resume oscillation; also re-arms BLDC
+  //   v <mm/s>   → linear max speed  e.g. "v 25"
+  //   t <1|2|3>  → kTest (0x04)   1=LinearWiggle  2=BldcPulse  3=LedBlink
+  //   1          → kStop kRampDown  (0x02/0x01) go to 0, save EEPROM on arrival
+  //   2          → kStop kEmergency (0x02/0x02) halt now, save EEPROM
+  //   3          → kStop kCutPower  (0x02/0x03) halt now, save EEPROM
   if (Serial.available()) {
     String line = Serial.readStringUntil('\n');
     line.trim();
@@ -137,7 +126,6 @@ void loop() {
 
       if (cmd == 's' || cmd == 'S') {                         // kStart
         if (motorState == MotorState::STOPPED) {
-          bldc.enable(true);  // re-arm oDrive if it was cut
           motorState = MotorState::OSCILLATING;
           wasMoving  = true;
           stage.moveToMm(targetPos);
@@ -169,8 +157,8 @@ void loop() {
             stage.jogMm(10.0f);
             break;
           case SpiTestType::kBldcPulse:
-            bldc.startRampTo(200);  // spin at 200 RPM; send '2' or '3' to stop
-            Serial.println("Test: BldcPulse -> 200 RPM (send 2 or 3 to stop)");
+            bldc.startRampTo(200);
+            Serial.println("Test: BldcPulse -> 200 RPM (send 2 to stop)");
             break;
           case SpiTestType::kLedBlink:
             Serial.println("Test: LedBlink (stub)");
@@ -178,34 +166,6 @@ void loop() {
           default:
             Serial.println("Usage: t <1|2|3>  1=LinearWiggle 2=BldcPulse 3=LedBlink");
             break;
-        }
-
-      } else if (cmd == 'b' || cmd == 'B') {                  // BLDC direct test
-        String arg = line.substring(1);
-        arg.trim();
-
-        if (arg.length() == 0 || arg[0] == '?') {
-          // Print oDrive connection status
-          Serial.println("── oDrive status ──────────────");
-          Serial.print("  armed   : "); Serial.println(bldc.isEnabled() ? "YES" : "NO");
-          Serial.print("  fault   : "); Serial.println(bldc.hasFault()  ? "YES" : "NO");
-          Serial.print("  target  : "); Serial.print(bldc.targetRpm());   Serial.println(" RPM");
-          Serial.print("  feedback: "); Serial.print(bldc.feedbackRpm()); Serial.println(" RPM");
-          Serial.println("───────────────────────────────");
-
-        } else if (arg[0] == '-') {
-          bldc.cutPower();
-          Serial.println("BLDC: axis disarmed (cutPower)");
-
-        } else {
-          int rpm = arg.toInt();
-          Serial.print("BLDC: ramping to ");
-          Serial.print(rpm);
-          Serial.println(" RPM");
-          bldc.startRampTo(rpm);
-          Serial.print("BLDC: ramping to ");
-          Serial.print(rpm);
-          Serial.println(" RPM");
         }
 
       } else if (cmd >= '1' && cmd <= '3') {                  // kStop subtypes
@@ -223,28 +183,16 @@ void loop() {
         motorState = MotorState::RAMP_DOWN;
         wasMoving  = true;
         stage.moveToMm(0.0f);
-        bldc.stop();  // ramp spool to 0 RPM via oDrive vel-ramp
-        Serial.println("Ramp down -> linear to 0 mm, spool ramping to 0 RPM");
+        Serial.println("Ramp down -> moving to 0 mm");
         break;
 
       case SpiStopType::kEmergency:
-        stage.stop();
-        bldc.stopImmediate();
-        motorState = MotorState::STOPPED;
-        saveFloat(EEPROM_POS_ADDR,    stage.positionMm());
-        saveFloat(EEPROM_TARGET_ADDR, targetPos);
-        Serial.print("Emergency stop at ");
-        Serial.print(stage.positionMm(), 1);
-        Serial.println(" mm - EEPROM saved");
-        break;
-
       case SpiStopType::kCutPower:
         stage.stop();
-        bldc.cutPower();  // disarms oDrive axis
         motorState = MotorState::STOPPED;
         saveFloat(EEPROM_POS_ADDR,    stage.positionMm());
         saveFloat(EEPROM_TARGET_ADDR, targetPos);
-        Serial.print("Cut power at ");
+        Serial.print("Stopped at ");
         Serial.print(stage.positionMm(), 1);
         Serial.println(" mm - EEPROM saved");
         break;
@@ -295,25 +243,11 @@ void loop() {
   }
 
   // ── Progress print ─────────────────────────────────────────────────────────
-  if (millis() - lastPrintMs >= 500UL) {
+  if (moving && millis() - lastPrintMs >= 500UL) {
     lastPrintMs = millis();
-    if (moving) {
-      Serial.print("pos: ");
-      Serial.print(stage.positionMm(), 1);
-      Serial.print(" mm  target: ");
-      Serial.print(targetPos, 1);
-      Serial.print(" mm  |  ");
-    }
-    if (bldc.isEnabled()) {
-      Serial.print("spool: ");
-      Serial.print(bldc.smoothedRpm());
-      Serial.print(" / ");
-      Serial.print(bldc.targetRpm());
-      Serial.print(" RPM (avg1s)");
-      if (bldc.hasFault()) Serial.print("  [FAULT]");
-      Serial.println();
-    } else if (moving) {
-      Serial.println();
-    }
+    Serial.print("pos: ");
+    Serial.print(stage.positionMm(), 1);
+    Serial.print(" mm  target: ");
+    Serial.println(targetPos, 1);
   }
 }

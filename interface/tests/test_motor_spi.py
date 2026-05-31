@@ -256,5 +256,24 @@ class TestSPIMotorTransport:
         assert transport.read() == [bytes([ResponsePrefix.CURRENT_SPEED, 0x10, 0x00])]
         assert fake.last_transfer == [CommandPrefix.REQUEST_SPEED, 0x00, 0x00]
 
+    def test_request_speed_ignores_all_zero_read(self, monkeypatch):
+        class FakeSpiDev:
+            def open(self, bus, device):
+                pass
+
+            def close(self):
+                pass
+
+            def xfer2(self, data):
+                return [0x00, 0x00, 0x00]
+
+        monkeypatch.setitem(sys.modules, "spidev", SimpleNamespace(SpiDev=FakeSpiDev))
+
+        transport = SPIMotorTransport()
+        transport.open()
+        transport.send(build_request_speed())
+
+        assert transport.read() == []
+
 
 # qapp fixture is provided by pytest-qt via conftest.py.

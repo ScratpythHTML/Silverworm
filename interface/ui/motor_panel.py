@@ -162,9 +162,9 @@ class MotorMetricPanel(GlowingCard):
         self._target_label.setText(f"{rpm:.0f} {self.unit}")
 
     def update_metrics(self, actual: Optional[float]):
-        """Update displayed metrics. Pass None to show N/A when no feedback exists."""
+        """Update displayed metrics. Pass None when no feedback exists."""
         if actual is None:
-            self.actual_value.set_value(None)
+            self.actual_value.set_value(None, self.unit)
             self.error_value.setText("--")
             muted = Theme.TEXT_MUTED
             self.actual_value.setStyleSheet(f"color: {muted};")

@@ -61,6 +61,8 @@ from ui.control_panel import ControlPanel
 from ui.camera_widget import EnhancedCameraView
 from ui.manual_mode_dialog import ManualModeBanner
 from ui.manual_overlay_panel import ManualOverlayPanel
+from ui.startup_dialog import StartupConfigDialog
+from ui.detent_dialog import DetentConfigDialog
 
 
 class MainWindow(QMainWindow):
@@ -374,6 +376,13 @@ class MainWindow(QMainWindow):
         recording_action.setShortcut("Ctrl+R")
         recording_action.triggered.connect(self._on_save_recording)
 
+        # Settings menu — reopen the startup config + edit detent increments.
+        settings_menu = menu_bar.addMenu("Settings")
+        target_action = settings_menu.addAction("Target Parameters...")
+        target_action.triggered.connect(self._on_edit_target_params)
+        detent_action = settings_menu.addAction("Detent Configurator...")
+        detent_action.triggered.connect(self._on_edit_detents)
+
         # Debug menu — inject simulated PUI messages on macOS / dev rigs.
         # Only meaningful when the underlying transport is a MockPUITransport.
         debug_menu = menu_bar.addMenu("Debug")
@@ -672,6 +681,52 @@ class MainWindow(QMainWindow):
         self.camera.set_pitch_overlay(spacing_px, tilt_deg)
 
     # ------------------------------------------------------------------
+    # Settings dialogs (in-session config edits)
+    # ------------------------------------------------------------------
+
+    def _on_edit_target_params(self) -> None:
+        """Reopen the startup configuration dialog after launch. Edits are
+        applied onto the existing config object (AppState shares the reference)
+        and persisted."""
+        dialog = StartupConfigDialog(initial=self.config, parent=self)
+        dialog.setWindowTitle("Silverworm — Target Parameters")
+        if dialog.exec() != StartupConfigDialog.DialogCode.Accepted:
+            return
+
+        new = dialog.config()
+        platform_changed = new.hw_platform != self.config.hw_platform
+
+        # Mutate in place — AppState holds the same AppConfig instance.
+        self.config.target_pitch_um = new.target_pitch_um
+        self.config.wire_thickness_um = new.wire_thickness_um
+        self.config.tube_diameter_mm = new.tube_diameter_mm
+        self.config.remember_settings = new.remember_settings
+        self.config.hw_platform = new.hw_platform
+        save_config(self.config)
+
+        # Overlay geometry depends on these values, but is only shown in manual mode.
+        if self.app_state.mode == Mode.MANUAL:
+            self._recompute_pitch_overlay()
+        self.alert_log.log("Target parameters updated", "success")
+        if platform_changed:
+            self.alert_log.log(
+                f"Hardware platform → {self.config.hw_platform.upper()} "
+                "(takes effect on restart)",
+                "warning",
+            )
+
+    def _on_edit_detents(self) -> None:
+        """Edit the dial-increment values. The new DetentConfig replaces the
+        one on the shared config object, so future PUI dial events use it."""
+        dialog = DetentConfigDialog(self.config.detent_config, parent=self)
+        if dialog.exec() != DetentConfigDialog.DialogCode.Accepted:
+            return
+
+        self.config.detent_config = dialog.detent_config()
+        save_config(self.config)
+        self.alert_log.log("Detent configuration updated", "success")
+
+    # ------------------------------------------------------------------
     # Start / stop
     # ------------------------------------------------------------------
 
@@ -695,6 +750,10 @@ class MainWindow(QMainWindow):
         if running:
             try:
                 self._is_running = True
+                self._last_feed_feedback_ts = 0.0
+                self._last_wrap_feedback_ts = 0.0
+                self.feed_motor_panel.update_metrics(None)
+                self.wrap_motor_panel.update_metrics(None)
                 self.controls.set_running(True)
                 self.feed_motor_panel.set_running(True)
                 self.wrap_motor_panel.set_running(True)
@@ -721,9 +780,13 @@ class MainWindow(QMainWindow):
                     pass
         else:
             self._is_running = False
+            self._last_feed_feedback_ts = 0.0
+            self._last_wrap_feedback_ts = 0.0
             self.controls.set_running(False)
             self.feed_motor_panel.set_running(False)
             self.wrap_motor_panel.set_running(False)
+            self.feed_motor_panel.update_metrics(None)
+            self.wrap_motor_panel.update_metrics(None)
 
             self.status_indicator.set_color(Theme.ERROR)
             self.status_indicator.stop()
@@ -816,16 +879,11 @@ class MainWindow(QMainWindow):
     def _update_metrics(self) -> None:
         """Periodic UI metric refresh.
 
-        - Manual mode: show the current setpoint as the actual value (no
-          real feedback path until the Arduino reports `current_speed`).
-        - Auto mode: show N/A when no recent SPI feedback has arrived.
+        Only real SPI feedback is allowed to populate the actual-speed fields.
+        When feedback goes stale, clear the readout instead of mirroring the
+        current setpoint.
         """
         if not self._is_running:
-            return
-
-        if self.app_state.mode == Mode.MANUAL:
-            self.feed_motor_panel.update_metrics(self.app_state.feed_speed_mms)
-            self.wrap_motor_panel.update_metrics(self.app_state.wrap_speed_rpm)
             return
 
         now_ts = datetime.now().timestamp()
