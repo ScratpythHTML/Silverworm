@@ -93,6 +93,7 @@ class MainWindow(QMainWindow):
         self._pitch_source: Optional[CameraWorker] = None
         self._buffer_log_counter = 0
         self._last_incident_save_ts: float = 0.0
+        self._motor_fault_shutdown_pending = False
         self.manual_banner: Optional[ManualModeBanner] = None
 
         # Storage + disk-backed rolling recorder. Footage is spooled to flash
@@ -104,6 +105,7 @@ class MainWindow(QMainWindow):
             window_seconds=180.0,
         )
         self._snapshot_dir = self._get_default_pictures_dir()
+        self._recording_save_dir = self.storage.recordings_dir
 
         # Legacy setpoint controller + UART transport (still used by the
         # low-confidence auto-manual flow; the new AppState path is the
@@ -435,6 +437,16 @@ class MainWindow(QMainWindow):
             "Inject custom feed speed...",
             lambda: self._prompt_and_inject(self.feed_motor_controller, is_wrap=False),
         )
+        debug_menu.addSeparator()
+        debug_menu.addSection("SPI error injection")
+        debug_menu.addAction(
+            "Inject wrap error 0x42",
+            lambda: self._inject_error_response(self.wrap_motor_controller, 0x42, "wrap"),
+        )
+        debug_menu.addAction(
+            "Inject feed error 0x42",
+            lambda: self._inject_error_response(self.feed_motor_controller, 0x42, "feed"),
+        )
 
     def _inject_pui_message(self, raw: str) -> None:
         """Inject a PUI message — only works when transport is the Mock variant."""
@@ -461,6 +473,23 @@ class MainWindow(QMainWindow):
         transport.inject_response(packet)
         self.alert_log.log(
             f"Injected speed response → {label}: {speed_units} units", "info"
+        )
+
+    def _inject_error_response(
+        self, controller: MotorController, error_code: int, label: str
+    ) -> None:
+        """Inject a fake Arduino error reply into a MockSPITransport."""
+        transport = controller._transport
+        if not isinstance(transport, MockSPITransport):
+            self.alert_log.log(
+                f"Error injection only available in mock mode ({label})", "warning"
+            )
+            return
+        code = max(0, min(0xFF, int(error_code)))
+        packet = bytes([ResponsePrefix.ERROR, code])
+        transport.inject_response(packet)
+        self.alert_log.log(
+            f"Injected {label} motor error response: 0x{code:02X}", "warning"
         )
 
     def _prompt_and_inject(self, controller: MotorController, is_wrap: bool) -> None:
@@ -547,13 +576,7 @@ class MainWindow(QMainWindow):
         self.pui_listener.hardware_unavailable.connect(
             lambda err: self.alert_log.log(f"PUI hardware unavailable: {err}", "warning")
         )
-        self.app_state.motor_error.connect(
-            lambda err: self.alert_log.log(f"Motor error: {err}", "error")
-        )
-        # A motor fault is a "sudden error" — keep the recent footage.
-        self.app_state.motor_error.connect(
-            lambda err: self._persist_recording("motor_error")
-        )
+        self.app_state.motor_error.connect(self._handle_app_motor_error)
         self.app_state.mode_change_blocked.connect(
             lambda reason: self.alert_log.log(reason, "warning")
         )
@@ -571,10 +594,10 @@ class MainWindow(QMainWindow):
         self.wrap_motor_controller.current_speed.connect(_on_wrap_current)
         self.feed_motor_controller.current_speed.connect(_on_feed_current)
         self.wrap_motor_controller.error_received.connect(
-            lambda code: self.alert_log.log(f"Wrap motor error code {code}", "error")
+            lambda code: self._handle_motor_response_error("wrap", code)
         )
         self.feed_motor_controller.error_received.connect(
-            lambda code: self.alert_log.log(f"Feed motor error code {code}", "error")
+            lambda code: self._handle_motor_response_error("feed", code)
         )
         self.wrap_motor_controller.raw_bytes_received.connect(
             lambda b: self.alert_log.log(
@@ -597,6 +620,41 @@ class MainWindow(QMainWindow):
             self.feed_motor_controller.poll()
         except Exception as e:
             self.alert_log.log(f"Feed poll error: {e}", "warning")
+
+    def _handle_app_motor_error(self, err: str) -> None:
+        """Handle errors raised while sending commands to the motor controllers."""
+        self._handle_motor_fault(
+            message=f"Motor error: {err}",
+            recording_reason="motor_error",
+        )
+
+    def _handle_motor_response_error(self, role: str, code: int) -> None:
+        """Handle an Arduino SPI ERROR response packet."""
+        label = role.capitalize()
+        self._handle_motor_fault(
+            message=f"{label} motor error code {code}",
+            recording_reason=f"{role}_motor_error",
+        )
+
+    def _handle_motor_fault(self, message: str, recording_reason: str) -> None:
+        """Log a sudden motor fault, stop the machine, then keep recent footage."""
+        self.alert_log.log(message, "error")
+
+        machine_on = getattr(self.app_state, "machine_on", self._is_running)
+        if machine_on and not self._motor_fault_shutdown_pending:
+            self._motor_fault_shutdown_pending = True
+            self.alert_log.log("Motor fault detected — stopping system", "error")
+            self._shutdown_after_motor_fault()
+
+        self._persist_recording(recording_reason)
+
+    def _shutdown_after_motor_fault(self) -> None:
+        try:
+            self.app_state.gui_set_machine_on(False)
+        except Exception as e:
+            self.alert_log.log(f"Motor-fault shutdown failed: {e}", "error")
+        finally:
+            self._motor_fault_shutdown_pending = False
 
     # ------------------------------------------------------------------
     # Manual-speed SET buttons
@@ -1179,9 +1237,22 @@ class MainWindow(QMainWindow):
             self.alert_log.log("No frames in buffer yet — nothing to save", "warning")
             return
 
-        path = self.storage.timestamped_path(
-            self.storage.recordings_dir, "recording", "mp4"
+        default_path = self.storage.timestamped_path(
+            Path(self._recording_save_dir), "recording", "mp4"
         )
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Recent Recording",
+            str(default_path),
+            "MP4 Video (*.mp4);;All Files (*)",
+        )
+        if not file_path:
+            return
+
+        path = Path(file_path)
+        if not path.suffix:
+            path = path.with_suffix(".mp4")
+
         dur = self.rolling_buffer.duration_seconds
         self.alert_log.log(
             f"Saving recording ({dur:.0f}s, {self.rolling_buffer.frame_count} frames)...",
@@ -1189,7 +1260,11 @@ class MainWindow(QMainWindow):
         )
 
         if self.rolling_buffer.save(path):
-            self.alert_log.log(f"Recording saved: {path.name}", "success")
+            self._recording_save_dir = path.parent
+            self.alert_log.log(
+                f"Recording saved: {path.name} — location: {path.parent}",
+                "success",
+            )
         else:
             self.alert_log.log("Recording save failed (cv2 or no frames)", "error")
 

@@ -12,9 +12,12 @@ from typing import Optional
 import sys
 import os
 import tempfile
+from pathlib import Path
 
-# Add image-processing to path
-sys.path.insert(0, '/Users/anhad/Silverworm-app/image-processing')
+# Add the sibling image-processing directory to the import path. Keep this
+# repo-relative so tests/dev work on macOS and the deployed Pi/CM5 image.
+IMAGE_PROCESSING_DIR = Path(__file__).resolve().parents[2] / "image-processing"
+sys.path.insert(0, str(IMAGE_PROCESSING_DIR))
 
 try:
     from pitch_estimate import PitchResult, estimate_pitch
@@ -33,6 +36,8 @@ except ImportError:
         scale_um_per_px: float
         texture_angle_deg: float
         thread_angle_deg: float
+
+    estimate_pitch = None
 
 
 class PitchDetectionPipeline(QObject):
@@ -141,9 +146,7 @@ class PitchDetectionPipeline(QObject):
                 raise IOError(f"Failed to write frame to {tmp_path}")
 
             # Run pitch detection (disable plots for live mode)
-            try:
-                result = estimate_pitch(tmp_path, show_plots=False)
-            except NameError:
+            if estimate_pitch is None:
                 # pitch_estimate not available - create dummy result for testing
                 result = PitchResult(
                     pitches_um=np.array([100.0, 102.0, 98.0]),
@@ -155,6 +158,8 @@ class PitchDetectionPipeline(QObject):
                     texture_angle_deg=45.0,
                     thread_angle_deg=0.0
                 )
+            else:
+                result = estimate_pitch(tmp_path, show_plots=False)
 
             # Emit result
             self.pitch_result_ready.emit(result)

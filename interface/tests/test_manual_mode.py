@@ -6,6 +6,7 @@ user acknowledgement.
 """
 
 import pytest
+from pathlib import Path
 from types import SimpleNamespace
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from processing.pipeline import PitchDetectionPipeline
@@ -203,6 +204,101 @@ def test_mainwindow_no_duplicate_pitch_connection(qapp):
 
     assert len(calls) == 1
     assert mw._pitch_source is mw.camera_worker
+
+
+# ---------------------------------------------------------------------------
+# MainWindow recording persistence/manual save behaviour
+# ---------------------------------------------------------------------------
+
+class _AlertLog:
+    def __init__(self):
+        self.entries = []
+
+    def log(self, message, level="info"):
+        self.entries.append((message, level))
+
+
+class _FakeRollingBuffer:
+    frame_count = 12
+    duration_seconds = 4.5
+
+    def __init__(self):
+        self.saved_paths = []
+        self.save_return = True
+
+    def save(self, path):
+        self.saved_paths.append(Path(path))
+        return self.save_return
+
+
+class _FakeStorage:
+    def __init__(self, recordings_dir: Path):
+        self.recordings_dir = recordings_dir
+
+    def timestamped_path(self, directory: Path, prefix: str, ext: str) -> Path:
+        return Path(directory) / f"{prefix}_test.{ext}"
+
+
+def _make_recording_window_stub(tmp_path):
+    from ui.main_window import MainWindow
+
+    mw = MainWindow.__new__(MainWindow)
+    mw.alert_log = _AlertLog()
+    mw.storage = _FakeStorage(tmp_path)
+    mw.rolling_buffer = _FakeRollingBuffer()
+    mw._recording_save_dir = tmp_path
+    return mw
+
+
+def test_save_recording_uses_save_dialog(qapp, tmp_path, monkeypatch):
+    from ui.main_window import MainWindow
+
+    mw = _make_recording_window_stub(tmp_path)
+    chosen = tmp_path / "manual_recording"
+    monkeypatch.setattr(
+        "ui.main_window.QFileDialog.getSaveFileName",
+        lambda *args, **kwargs: (str(chosen), ""),
+    )
+
+    MainWindow._on_save_recording(mw)
+
+    assert mw.rolling_buffer.saved_paths == [chosen.with_suffix(".mp4")]
+    assert mw._recording_save_dir == tmp_path
+    assert any("Recording saved" in msg for msg, _ in mw.alert_log.entries)
+
+
+def test_save_recording_cancel_does_not_save(qapp, tmp_path, monkeypatch):
+    from ui.main_window import MainWindow
+
+    mw = _make_recording_window_stub(tmp_path)
+    monkeypatch.setattr(
+        "ui.main_window.QFileDialog.getSaveFileName",
+        lambda *args, **kwargs: ("", ""),
+    )
+
+    MainWindow._on_save_recording(mw)
+
+    assert mw.rolling_buffer.saved_paths == []
+
+
+def test_spi_error_response_stops_machine_then_persists_recording(qapp):
+    from ui.main_window import MainWindow
+
+    mw = MainWindow.__new__(MainWindow)
+    mw.alert_log = _AlertLog()
+    mw._is_running = True
+    mw._motor_fault_shutdown_pending = False
+    events = []
+    mw._persist_recording = lambda reason: events.append(("persist", reason))
+    mw.app_state = SimpleNamespace(
+        machine_on=True,
+        gui_set_machine_on=lambda on: events.append(("stop", on)),
+    )
+
+    MainWindow._handle_motor_response_error(mw, "wrap", 0x42)
+
+    assert events == [("stop", False), ("persist", "wrap_motor_error")]
+    assert any("Wrap motor error code 66" in msg for msg, _ in mw.alert_log.entries)
 
 
 def test_consecutive_low_threshold(qapp):
