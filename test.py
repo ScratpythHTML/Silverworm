@@ -3,7 +3,7 @@ import time
 
 spi = spidev.SpiDev()
 spi.open(1, 2)  # Open SPI bus 0, device (CE) 0
-spi.max_speed_hz = 562000  # Set max speed (adjust
+spi.max_speed_hz = 562000  # Set max speed (adjust)
 spi.mode = 0
 
 # response = spi.xfer2(0x01, 0x00, 0x64)  # Send dummy byte to read
