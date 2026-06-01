@@ -33,9 +33,12 @@ from PyQt6.QtWidgets import QFrame
 
 from app_state import AppState
 from config import AppConfig
-from pitch_control import PitchMeasurement, process_pitch_result
+from pitch_control import (
+    PitchMeasurement, process_pitch_result, compute_wrapper_rpm_from_feed_speed,
+)
 from telemetry import TelemetryLog
 from hil_runner import HIL_SCENARIOS, run_hil_scenario, export_csv, default_csv_path
+from ui.theme import Theme
 
 
 def _field_row(label: str, widget) -> QHBoxLayout:
@@ -68,6 +71,12 @@ class HILTestPanel(QDialog):
     # MainWindow connects this to update the feed-motor panel and telemetry labels.
     speed_commanded = pyqtSignal(float)
 
+    # Emitted when the operator sets the feed speed directly during a test.
+    # Payload: (feed_speed_mm_s, wrapper_rpm). wrapper_rpm is 0.0 if the
+    # initial formula could not produce a value. MainWindow applies both to
+    # the motors / GUI.
+    feed_setpoint_changed = pyqtSignal(float, float)
+
     def __init__(
         self,
         config: AppConfig,
@@ -89,7 +98,83 @@ class HILTestPanel(QDialog):
         self._active_tlog: Optional[TelemetryLog] = None
         self._active_run_id: str = ""
 
+        self._apply_theme()
         self._setup_ui()
+
+    def _apply_theme(self) -> None:
+        """Match the dark theme used by the rest of the app (config dialog etc.)
+        so the panel is readable on the Pi."""
+        t = Theme
+        self.setStyleSheet(f"""
+            QDialog {{ background-color: {t.BG_PRIMARY}; }}
+            QLabel {{
+                color: {t.TEXT_PRIMARY};
+                background: transparent;
+                font-family: 'Segoe UI', -apple-system, sans-serif;
+            }}
+            QGroupBox {{
+                color: {t.TEXT_SECONDARY};
+                border: 1px solid {t.BORDER};
+                border-radius: 8px;
+                margin-top: 12px;
+                padding: 10px;
+                font-size: 12px;
+                font-weight: 600;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 12px;
+                padding: 0 5px;
+                color: {t.ACCENT_PRIMARY};
+            }}
+            QDoubleSpinBox, QComboBox {{
+                background-color: {t.BG_ELEVATED};
+                color: {t.TEXT_PRIMARY};
+                border: 1px solid {t.BORDER};
+                border-radius: 6px;
+                padding: 5px 8px;
+                font-size: 12px;
+            }}
+            QDoubleSpinBox:focus, QComboBox:focus {{
+                border: 1px solid {t.BORDER_FOCUS};
+            }}
+            QComboBox::drop-down {{ border: none; width: 18px; }}
+            QComboBox QAbstractItemView {{
+                background-color: {t.BG_CARD};
+                color: {t.TEXT_PRIMARY};
+                selection-background-color: {t.BG_HOVER};
+                selection-color: {t.ACCENT_PRIMARY};
+                border: 1px solid {t.BORDER};
+            }}
+            QPushButton {{
+                background-color: {t.BG_ELEVATED};
+                color: {t.TEXT_PRIMARY};
+                border: 1px solid {t.BORDER};
+                border-radius: 6px;
+                padding: 6px 14px;
+                font-size: 12px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                border: 1px solid {t.BORDER_FOCUS};
+                color: {t.ACCENT_PRIMARY};
+            }}
+            QPushButton:disabled {{
+                color: {t.TEXT_DISABLED};
+                border-color: {t.BORDER};
+            }}
+            QTextEdit {{
+                background-color: {t.BG_DARKEST};
+                color: {t.TEXT_PRIMARY};
+                border: 1px solid {t.BORDER};
+                border-radius: 6px;
+                font-family: 'Consolas', 'Menlo', monospace;
+                font-size: 11px;
+            }}
+            QCheckBox {{ color: {t.TEXT_PRIMARY}; spacing: 8px; }}
+            QCheckBox:disabled {{ color: {t.TEXT_DISABLED}; }}
+        """)
 
     # ------------------------------------------------------------------
     # UI layout
@@ -112,7 +197,7 @@ class HILTestPanel(QDialog):
             if self._live_app_state is not None
             else "No live hardware available — mock mode only"
         )
-        live_hint.setStyleSheet("color: grey; font-size: 10px;")
+        live_hint.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 10px;")
         live_hint.setWordWrap(True)
         root.addWidget(live_hint)
 
@@ -128,7 +213,7 @@ class HILTestPanel(QDialog):
 
         # live mode status (hidden in mock mode)
         self._live_feed_label = QLabel()
-        self._live_feed_label.setStyleSheet("color: grey; font-size: 10px;")
+        self._live_feed_label.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 10px;")
         inj.addWidget(self._live_feed_label)
         self._update_live_feed_label()
 
@@ -183,6 +268,25 @@ class HILTestPanel(QDialog):
         custom_row.addWidget(inject_btn)
         inj.addLayout(custom_row)
 
+        # direct feed-speed override — derives the paired wrapper speed via the
+        # initial formula and pushes both to the GUI / motors.
+        self._feed_speed_set = QDoubleSpinBox()
+        self._feed_speed_set.setRange(0.0, 20.0)
+        self._feed_speed_set.setDecimals(3)
+        self._feed_speed_set.setSuffix(" mm/s")
+        self._feed_speed_set.setValue(self._config.initial_feed_speed_mms or 10.0)
+        feed_set_btn = QPushButton("Set feed →")
+        feed_set_btn.setFixedHeight(30)
+        feed_set_btn.clicked.connect(
+            lambda: self._on_set_feed_speed(self._feed_speed_set.value())
+        )
+        feed_row = QHBoxLayout()
+        feed_row.setSpacing(6)
+        feed_row.addWidget(QLabel("Set feed speed:"))
+        feed_row.addWidget(self._feed_speed_set, 1)
+        feed_row.addWidget(feed_set_btn)
+        inj.addLayout(feed_row)
+
         root.addWidget(self._inject_group)
 
         # ── batch scenario (mock only) ────────────────────────────────
@@ -198,7 +302,7 @@ class HILTestPanel(QDialog):
 
         self._desc_label = QLabel()
         self._desc_label.setWordWrap(True)
-        self._desc_label.setStyleSheet("color: grey; font-size: 10px;")
+        self._desc_label.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 10px;")
         batch.addWidget(self._desc_label)
         self._on_scenario_changed(0)
 
@@ -249,7 +353,7 @@ class HILTestPanel(QDialog):
         root.addLayout(bottom)
 
         self._path_label = QLabel()
-        self._path_label.setStyleSheet("font-size: 10px; color: grey;")
+        self._path_label.setStyleSheet(f"font-size: 10px; color: {Theme.TEXT_SECONDARY};")
         self._path_label.setWordWrap(True)
         root.addWidget(self._path_label)
 
@@ -319,6 +423,33 @@ class HILTestPanel(QDialog):
 
     def _log_line(self, text: str) -> None:
         self._log.append(text)
+
+    # ------------------------------------------------------------------
+    # Direct feed-speed override
+    # ------------------------------------------------------------------
+
+    def _on_set_feed_speed(self, feed_mm_s: float) -> None:
+        """Operator sets the feed speed directly (live and offline). Derives
+        the paired wrapper speed from the initial formula and pushes both to
+        the GUI / motors via MainWindow."""
+        target_mm = self._target_pitch.value()
+        wrapper_rpm = compute_wrapper_rpm_from_feed_speed(
+            feed_speed_mm_s=feed_mm_s,
+            target_pitch_mm=target_mm,
+            tube_diameter_mm=self._config.tube_diameter_mm,
+            wire_diameter_mm=self._config.wire_thickness_um / 1000.0,
+        )
+        if wrapper_rpm is not None:
+            self._log_line(
+                f"Set feed {feed_mm_s:.3f} mm/s → wrapper {wrapper_rpm:.0f} rpm "
+                f"(target {target_mm:.3f} mm)"
+            )
+        else:
+            self._log_line(
+                f"Set feed {feed_mm_s:.3f} mm/s → wrapper N/A (invalid geometry/feed)"
+            )
+        self.feed_setpoint_changed.emit(feed_mm_s, wrapper_rpm or 0.0)
+        self._update_live_feed_label()
 
     # ------------------------------------------------------------------
     # Inject (shared by live and single-shot mock)

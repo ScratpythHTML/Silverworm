@@ -126,6 +126,41 @@ def compute_initial_feed_speed_mm_s(
     return wrapper_rps / math.sqrt(sqrt_arg)
 
 
+def compute_wrapper_rpm_from_feed_speed(
+    feed_speed_mm_s: float,
+    target_pitch_mm: float,
+    tube_diameter_mm: float,
+    wire_diameter_mm: float,
+) -> Optional[float]:
+    """Inverse of compute_initial_feed_speed_mm_s: the wrapper RPM that pairs
+    with a given feed speed to hit the target pitch (initial setpoint only).
+
+        wrapper_rps = v * sqrt(1/D2^2 - 1/(4*pi^2*(r + D1/2)^2))
+        wrapper_rpm = wrapper_rps * 60
+
+    Returns None for invalid inputs (non-positive geometry/feed or a
+    non-positive square-root argument).
+    """
+    if target_pitch_mm <= 0:
+        return None
+    if tube_diameter_mm <= 0:
+        return None
+    if wire_diameter_mm < 0:
+        return None
+    if feed_speed_mm_s <= 0:
+        return None
+
+    effective_radius_mm = tube_diameter_mm / 2.0 + wire_diameter_mm / 2.0
+    sqrt_arg = (
+        1.0 / (target_pitch_mm ** 2)
+        - 1.0 / (4.0 * math.pi ** 2 * effective_radius_mm ** 2)
+    )
+    if sqrt_arg <= 0:
+        return None
+
+    return feed_speed_mm_s * math.sqrt(sqrt_arg) * 60.0
+
+
 def process_pitch_result(
     measurement: PitchMeasurement,
     app_state: AppState,

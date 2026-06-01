@@ -25,7 +25,7 @@ CONFIG_FILENAME = "config.json"
 
 # Manual-speed input bounds — single source of truth, shared by app_state,
 # controller, and the UI motor panels. Change here to affect all three.
-WRAP_SPEED_MIN_RPM = 0.0
+WRAP_SPEED_MIN_RPM = 1500.0
 WRAP_SPEED_MAX_RPM = 3000.0   # Wrapper motor (RPM)
 FEED_SPEED_MIN_MMS = 0.0
 FEED_SPEED_MAX_MMS = 20.0     # Feed motor (mm/s)

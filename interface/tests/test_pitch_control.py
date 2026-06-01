@@ -22,6 +22,7 @@ from pitch_control import (
     process_pitch_result,
     calculate_corrected_feed_speed,
     compute_initial_feed_speed_mm_s,
+    compute_wrapper_rpm_from_feed_speed,
     measurement_from_pitch_result,
     MIN_WRAPS_FOR_CORRECTION,
 )
@@ -488,6 +489,29 @@ class TestTheoreticalStartup:
     def test_negative_sqrt_argument_returns_none(self):
         # Large target pitch makes 1/D2^2 small → sqrt arg negative → None
         assert compute_initial_feed_speed_mm_s(600.0, 1000.0, 5.0, 0.1) is None
+
+
+class TestWrapperFromFeed:
+    """Inverse formula: wrapper RPM from feed speed."""
+
+    def test_round_trips_with_feed_formula(self):
+        # wrapper → feed → wrapper must recover the original wrapper RPM
+        wrapper_rpm, target, tube, wire = 2000.0, 6.0, 5.0, 0.1
+        v = compute_initial_feed_speed_mm_s(wrapper_rpm, target, tube, wire)
+        back = compute_wrapper_rpm_from_feed_speed(v, target, tube, wire)
+        assert back == pytest.approx(wrapper_rpm)
+
+    def test_returns_positive_for_valid_inputs(self):
+        rpm = compute_wrapper_rpm_from_feed_speed(10.0, 6.0, 5.0, 0.1)
+        assert rpm is not None and rpm > 0
+
+    def test_invalid_inputs_return_none(self):
+        assert compute_wrapper_rpm_from_feed_speed(0.0, 6.0, 5.0, 0.1) is None   # feed 0
+        assert compute_wrapper_rpm_from_feed_speed(10.0, 0.0, 5.0, 0.1) is None  # target 0
+        assert compute_wrapper_rpm_from_feed_speed(10.0, 6.0, 0.0, 0.1) is None  # tube 0
+        assert compute_wrapper_rpm_from_feed_speed(10.0, 6.0, 5.0, -0.1) is None  # wire < 0
+        # Large target pitch → negative sqrt arg
+        assert compute_wrapper_rpm_from_feed_speed(10.0, 1000.0, 5.0, 0.1) is None
 
 
 # ---------------------------------------------------------------------------

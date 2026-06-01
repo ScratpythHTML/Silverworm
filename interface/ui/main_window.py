@@ -52,6 +52,7 @@ from pitch_control import (
     measurement_from_pitch_result,
     process_pitch_result,
     compute_initial_feed_speed_mm_s,
+    compute_wrapper_rpm_from_feed_speed,
 )
 from telemetry import TelemetryLog
 
@@ -506,6 +507,8 @@ class MainWindow(QMainWindow):
 
         def on_wrap(rpm: float):
             self.alert_log.log(f"Wrap speed: {rpm:.2f} rpm", "info")
+            # Commanded wrapper speed is the panel target.
+            self.wrap_motor_panel.set_target(rpm)
 
         def on_feed(mms: float):
             self.alert_log.log(f"Feed speed: {mms:.3f} mm/s", "info")
@@ -523,6 +526,10 @@ class MainWindow(QMainWindow):
                     command_sent_successfully=self.app_state.machine_on,
                     reason="manual feed change",
                 )
+                # Operator set the feed speed → derive the paired wrapper speed.
+                # (AUTO/HIL corrections leave the wrapper fixed — they don't
+                # reach this branch.)
+                self._recompute_wrapper_from_feed()
             self._prev_feed_commanded = mms
             self._refresh_telemetry_labels()
 
@@ -755,7 +762,15 @@ class MainWindow(QMainWindow):
         self.config.remember_settings = new.remember_settings
         self.config.hw_platform = new.hw_platform
         save_config(self.config)
+
+        # Refresh the GUI to reflect the new config:
+        #  - pitch TARGET label
+        #  - feed motor target (re-applied initial feed speed)
+        #  - wrapper motor target (derived from feed via the initial formula)
         self._update_pitch_target_label()
+        if self.config.initial_feed_speed_mms > 0:
+            self.app_state.gui_set_feed_speed(self.config.initial_feed_speed_mms)
+        self._recompute_wrapper_from_feed()
 
         # Overlay geometry depends on these values, but is only shown in manual mode.
         if self.app_state.mode == Mode.MANUAL:
@@ -782,10 +797,32 @@ class MainWindow(QMainWindow):
     def _apply_initial_speeds(self) -> None:
         """Pre-load the configured initial feed speed into AppState (machine off
         → no SPI yet) so the motor panel shows the right target on startup.
-        When the machine is turned on, AppState sends this as the START payload."""
+        When the machine is turned on, AppState sends this as the START payload.
+        The paired wrapper speed is derived from the feed speed via the formula."""
         self._update_pitch_target_label()
         if self.config.initial_feed_speed_mms > 0:
             self.app_state.gui_set_feed_speed(self.config.initial_feed_speed_mms)
+        self._recompute_wrapper_from_feed()
+
+    def _recompute_wrapper_from_feed(self) -> None:
+        """Derive the wrapper RPM from the current feed speed + target pitch +
+        geometry (initial-setpoint formula) and apply it. Updates the wrapper
+        panel target, and sends SPI when the machine is running. Skipped if the
+        inputs are invalid (e.g. feed speed 0)."""
+        rpm = compute_wrapper_rpm_from_feed_speed(
+            feed_speed_mm_s=self.app_state.feed_speed_mms,
+            target_pitch_mm=self.config.target_pitch_um / 1000.0,
+            tube_diameter_mm=self.config.tube_diameter_mm,
+            wire_diameter_mm=self.config.wire_thickness_um / 1000.0,
+        )
+        if rpm is None:
+            return
+        self.app_state.gui_set_wrap_speed(rpm)  # clamps to ≥ WRAP_SPEED_MIN_RPM
+        self.alert_log.log(
+            f"Wrapper speed from feed {self.app_state.feed_speed_mms:.3f} mm/s "
+            f"→ {self.app_state.wrap_speed_rpm:.0f} rpm",
+            "info",
+        )
 
     def _update_pitch_target_label(self) -> None:
         """Refresh the TARGET cell in the pitch metrics card from current config."""
@@ -805,6 +842,15 @@ class MainWindow(QMainWindow):
         self.feed_motor_panel.set_target(speed_mm_s)
         self._refresh_telemetry_labels()
 
+    def _on_hil_feed_setpoint(self, feed_mm_s: float, wrapper_rpm: float) -> None:
+        """Operator set the feed speed directly in the HIL panel. Apply the feed
+        speed and the derived wrapper speed to AppState — this updates both
+        motor panel targets and sends SPI when the machine is running."""
+        self.app_state.gui_set_feed_speed(feed_mm_s)
+        if wrapper_rpm > 0:
+            self.app_state.gui_set_wrap_speed(wrapper_rpm)  # clamps to ≥ 1800 rpm
+        self._refresh_telemetry_labels()
+
     def _on_open_hil_panel(self) -> None:
         """Open the HIL Test Runner.
 
@@ -821,6 +867,7 @@ class MainWindow(QMainWindow):
         )
         panel.speed_commanded.connect(self._on_hil_speed_commanded)
         panel.target_pitch_changed.connect(self._on_hil_target_pitch_changed)
+        panel.feed_setpoint_changed.connect(self._on_hil_feed_setpoint)
         panel.exec()
         # Restore the real config target after the HIL session ends.
         self._update_pitch_target_label()
