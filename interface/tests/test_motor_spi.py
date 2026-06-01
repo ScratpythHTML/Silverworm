@@ -10,7 +10,7 @@ from comms.motor_spi import (
     build_start, build_stop, build_set_speed, build_test_movement,
     build_request_speed,
     parse_arduino_response,
-    CurrentSpeed, ErrorResponse, SequenceStatus,
+    CurrentSpeed, ErrorResponse, SequenceStatus, PollResult,
     MockSPITransport, MotorController, SPIMotorTransport,
 )
 
@@ -166,6 +166,10 @@ class TestMockSPITransportAndController:
         mc.start(0x0100)
         assert t.sent == [bytes([CommandPrefix.START, 0x00, 0x01])]
 
+    def test_motor_controller_name_defaults_and_overrides(self):
+        assert MotorController(MockSPITransport()).name == "MOTOR"
+        assert MotorController(MockSPITransport(), name="WRAP").name == "WRAP"
+
     def test_motor_controller_poll_emits_current_speed(self, qapp):
         t = MockSPITransport()
         mc = MotorController(t)
@@ -175,10 +179,22 @@ class TestMockSPITransportAndController:
         mc.current_speed.connect(received.append)
 
         t.inject_response(bytes([ResponsePrefix.CURRENT_SPEED, 0x10, 0x00]))
-        mc.poll()
+        result = mc.poll()
 
         assert received == [0x0010]
         assert t.sent == [build_request_speed()]
+        assert result == PollResult(
+            tx=build_request_speed(),
+            rx=bytes([ResponsePrefix.CURRENT_SPEED, 0x10, 0x00]),
+            speed=0x0010,
+        )
+
+    def test_motor_controller_poll_no_reply_returns_empty_result(self, qapp):
+        t = MockSPITransport()
+        mc = MotorController(t)
+        mc.open()
+        result = mc.poll()
+        assert result == PollResult(tx=build_request_speed(), rx=None, speed=None)
 
     def test_motor_controller_poll_emits_error(self, qapp):
         t = MockSPITransport()
@@ -254,7 +270,7 @@ class TestSPIMotorTransport:
         transport.send(build_request_speed())
 
         assert transport.read() == [bytes([ResponsePrefix.CURRENT_SPEED, 0x10, 0x00])]
-        assert fake.last_transfer == [CommandPrefix.REQUEST_SPEED, 0x00, 0x00]
+        assert fake.last_transfer == [CommandPrefix.REQUEST_SPEED, 0x00, 0x00, 0x00]
 
     def test_request_speed_ignores_all_zero_read(self, monkeypatch):
         class FakeSpiDev:

@@ -347,3 +347,16 @@ class TestScaling:
 
     def test_mms_to_units(self):
         assert mms_to_units(0.5) == 1
+
+
+# ============================================================================
+# Single source of truth — bounds come from config
+# ============================================================================
+
+def test_speed_bounds_come_from_config():
+    import app_state
+    import config
+    assert app_state.WRAP_SPEED_MIN_RPM == config.WRAP_SPEED_MIN_RPM
+    assert app_state.WRAP_SPEED_MAX_RPM == config.WRAP_SPEED_MAX_RPM
+    assert app_state.FEED_SPEED_MIN_MMS == config.FEED_SPEED_MIN_MMS
+    assert app_state.FEED_SPEED_MAX_MMS == config.FEED_SPEED_MAX_MMS

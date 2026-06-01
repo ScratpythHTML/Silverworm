@@ -13,6 +13,11 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import Optional, Callable, List
 
+from config import (
+    FEED_SPEED_MIN_MMS, FEED_SPEED_MAX_MMS,
+    WRAP_SPEED_MIN_RPM, WRAP_SPEED_MAX_RPM,
+)
+
 
 class OperatingMode(Enum):
     AUTO = "AUTO"
@@ -26,11 +31,12 @@ class Setpoints:
     speed_b: float = 0.0  # Wrapper motor
 
 
-# Bounds for manual speed input validation
-SPEED_A_MIN = 0.0
-SPEED_A_MAX = 10.0    # Feed motor: 0-10 mm/s
-SPEED_B_MIN = 0.0
-SPEED_B_MAX = 3000.0  # Wrapper motor: 0-3000 RPM
+# Bounds for manual speed input validation. Aliased from config.py (single
+# source of truth) so a limit change there updates the controller too.
+SPEED_A_MIN = FEED_SPEED_MIN_MMS   # Feed motor (mm/s)
+SPEED_A_MAX = FEED_SPEED_MAX_MMS
+SPEED_B_MIN = WRAP_SPEED_MIN_RPM   # Wrapper motor (RPM)
+SPEED_B_MAX = WRAP_SPEED_MAX_RPM
 
 
 class SetpointController:

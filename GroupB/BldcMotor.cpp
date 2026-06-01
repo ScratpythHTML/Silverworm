@@ -143,10 +143,10 @@ void BldcMotor::poll() {
   velBufIdx_ = (velBufIdx_ + 1) % kAvgLen;
   smoothedRpm_ = static_cast<int>(velBufSum_ / kAvgLen);
 
-  Serial.print(F("cmd=")); Serial.print(targetRpm_);
-  Serial.print(F(" rpm  pos=")); Serial.print(feedback.pos, 3);
-  Serial.print(F("  vel=")); Serial.print(feedback.vel, 3);
-  Serial.println(F(" turns/s"));
+  // Serial.print(F("cmd=")); Serial.print(targetRpm_);
+  // Serial.print(F(" rpm  pos=")); Serial.print(feedback.pos, 3);
+  // Serial.print(F("  vel=")); Serial.print(feedback.vel, 3);
+  // Serial.println(F(" turns/s"));
 
   if (armed_ && targetRpm_ != 0) {
     const ODriveAxisState state = odrive_.getState();

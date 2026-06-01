@@ -11,8 +11,8 @@ namespace SpiCmd {
 constexpr uint8_t kStart    = 0x01;  // 3 bytes: prefix + speedL + speedH (RPM, int16 LE)
 constexpr uint8_t kStop     = 0x02;  // 2 bytes: prefix + stop type
 constexpr uint8_t kSetSpeed = 0x03;  // 3 bytes: prefix + speedL + speedH (RPM, int16 LE)
-constexpr uint8_t kTest     = 0x04;  // 2 bytes: prefix + test type
-constexpr uint8_t kQuery    = 0x05;  // 3 bytes: prefix + 2 clock bytes; request feedback RPM
+constexpr uint8_t kTest     = 0x04;  // 1 byte:  prefix only
+constexpr uint8_t kQuery    = 0x05;  // 1 byte:  prefix only — request feedback RPM
 }  // namespace SpiCmd
 
 namespace SpiStopType {
@@ -45,9 +45,9 @@ constexpr uint8_t kMotorStoppedUnexpected = 0x02;
 
 // Returns the byte-length of a master→slave command frame.
 constexpr uint8_t spiMessageLength(uint8_t prefix) {
-  return (prefix == SpiCmd::kStart || prefix == SpiCmd::kSetSpeed ||
-          prefix == SpiCmd::kQuery)                                ? 3
-       : (prefix == SpiCmd::kStop || prefix == SpiCmd::kTest)       ? 2
+  return (prefix == SpiCmd::kStart || prefix == SpiCmd::kSetSpeed) ? 3
+       : (prefix == SpiCmd::kStop)                                  ? 2
+       : (prefix == SpiCmd::kTest  || prefix == SpiCmd::kQuery)     ? 1
        : 0;
 }
 

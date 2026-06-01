@@ -119,6 +119,7 @@ wrap speed.
 | `0x02` | Stop          | `stop_type` (1=ramp, 2=emergency, 3=power-off) |
 | `0x03` | Set speed     | `speedL`, `speedH`                     |
 | `0x04` | Test movement | `movement_type` (1 byte)               |
+| `0x05` | Request Speed | `empty`, `empty`, `empty`              |
 
 ### Arduino → RPi
 

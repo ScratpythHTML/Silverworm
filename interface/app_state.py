@@ -48,7 +48,11 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from comms.pui import DialChange, ModeSwitch, PUIMode, DetentSize
 from comms.motor_spi import MotorController, StopType, SPEED_MAX
-from config import AppConfig
+from config import (
+    AppConfig,
+    WRAP_SPEED_MIN_RPM, WRAP_SPEED_MAX_RPM,
+    FEED_SPEED_MIN_MMS, FEED_SPEED_MAX_MMS,
+)
 
 
 class Mode(Enum):
@@ -56,13 +60,9 @@ class Mode(Enum):
     MANUAL = "manual"
 
 
-# Default safety bounds. The motor itself enforces real limits; these
-# are application-side clamps to prevent obvious nonsense from PUI dial
-# accumulation. Tune once we know the real motor specs.
-WRAP_SPEED_MIN_RPM = 0.0
-WRAP_SPEED_MAX_RPM = 3000.0
-FEED_SPEED_MIN_MMS = 0.0
-FEED_SPEED_MAX_MMS = 20.0
+# Manual-speed bounds live in config.py (single source of truth). They are
+# imported above and used as application-side clamps to prevent obvious
+# nonsense from PUI dial accumulation; the motor enforces real limits.
 
 
 # Physical → SPI integer scaling. Confirm with Arduino firmware once
