@@ -36,6 +36,9 @@ class SpeedCommand:
     speed_delta_mm_s: float
     command_sent_successfully: bool
     reason: str = ""                            # correction reason or blocked reason
+    confidence: str = ""                        # HIGH | MEDIUM | LOW | FAILED | ""
+    correction_gain: float = 1.0
+    resulting_mode: str = ""                    # mode after command (may differ for LOW/FAILED)
     measured_pitch_before_mm: Optional[float] = None
     timestamp_command_sent: Optional[float] = None
     # --- filled when motor feedback arrives ---

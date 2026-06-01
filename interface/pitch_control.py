@@ -131,6 +131,7 @@ def process_pitch_result(
     app_state: AppState,
     config: AppConfig,
     telemetry=None,
+    correction_gain: float = 1.0,
 ) -> str:
     """Apply one pitch measurement to the feed-speed control loop.
 
@@ -159,7 +160,7 @@ def process_pitch_result(
 
     def _finish(reason: str, sent: bool, commanded: float) -> str:
         if telemetry is not None:
-            telemetry.record_command(
+            rec = telemetry.record_command(
                 mode=mode,
                 source=src,
                 target_pitch_mm=target_mm,
@@ -169,6 +170,9 @@ def process_pitch_result(
                 reason=reason,
                 measured_pitch_before_mm=measured_before,
             )
+            rec.confidence = conf
+            rec.correction_gain = correction_gain
+            rec.resulting_mode = app_state.mode.value.upper()
         return reason
 
     # --- LOW / FAILED: switch to manual mode immediately, no correction ----
@@ -226,6 +230,7 @@ def process_pitch_result(
         measured_pitch_mm=measurement.measured_pitch_mm,
         min_feed_speed_mm_s=FEED_SPEED_MIN_MMS,
         max_feed_speed_mm_s=FEED_SPEED_MAX_MMS,
+        correction_gain=correction_gain,
     )
 
     # MVP: reuse gui_set_feed_speed because it already sends the SET_SPEED SPI

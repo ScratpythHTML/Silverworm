@@ -65,6 +65,7 @@ def run_hil_pitch_sequence(
     config: AppConfig,
     num_wraps: int = 10,
     telemetry=None,
+    correction_gain: float = 1.0,
 ) -> list[str]:
     """Inject dummy measurements through the real control path.
 
@@ -79,7 +80,10 @@ def run_hil_pitch_sequence(
             num_wraps=num_wraps,
             source="HIL",
         )
-        log = process_pitch_result(measurement, app_state, config, telemetry=telemetry)
+        log = process_pitch_result(
+            measurement, app_state, config,
+            telemetry=telemetry, correction_gain=correction_gain,
+        )
         print(log)
         logs.append(log)
     return logs

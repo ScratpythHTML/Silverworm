@@ -17,7 +17,6 @@ from __future__ import annotations
 import math
 import os
 import random
-import struct
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -28,7 +27,7 @@ from PyQt6.QtCore import Qt, QTimer, QStandardPaths
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QPushButton, QFileDialog, QInputDialog,
+    QLabel, QPushButton, QFileDialog,
 )
 
 # Hardware + state
@@ -39,7 +38,6 @@ from config import AppConfig, save_config, calculate_wrap_angle_deg
 from hardware import build_transports
 from comms import PUIListener, MotorController
 from comms import MockTransport, Transport
-from comms.motor_spi import MockSPITransport, ResponsePrefix
 from controller import (
     SetpointController, OperatingMode, Setpoints,
     SPEED_A_MIN, SPEED_A_MAX, SPEED_B_MIN, SPEED_B_MAX,
@@ -69,6 +67,7 @@ from ui.manual_mode_dialog import ManualModeBanner
 from ui.manual_overlay_panel import ManualOverlayPanel
 from ui.startup_dialog import StartupConfigDialog
 from ui.detent_dialog import DetentConfigDialog
+from ui.hil_panel import HILTestPanel
 
 
 class MainWindow(QMainWindow):
@@ -421,122 +420,10 @@ class MainWindow(QMainWindow):
         detent_action = settings_menu.addAction("Detent Configurator...")
         detent_action.triggered.connect(self._on_edit_detents)
 
-        # Debug menu — inject simulated PUI messages on macOS / dev rigs.
-        # Only meaningful when the underlying transport is a MockPUITransport.
-        debug_menu = menu_bar.addMenu("Debug")
-        debug_menu.addSection("PUI injection")
-        for raw in ("D1+1", "D1+2", "D1+3", "D1-1", "D1-2", "D1-3"):
-            debug_menu.addAction(
-                f"Inject {raw}",
-                lambda r=raw: self._inject_pui_message(r),
-            )
-        debug_menu.addSeparator()
-        for raw in ("D2+1", "D2+2", "D2+3", "D2-1", "D2-2", "D2-3"):
-            debug_menu.addAction(
-                f"Inject {raw}",
-                lambda r=raw: self._inject_pui_message(r),
-            )
-        debug_menu.addSeparator()
-        for label, raw in (
-            ("AS0 (manual)", "AS0"),
-            ("AS1 (auto)", "AS1"),
-            ("TP (toggle power)", "TP"),
-        ):
-            debug_menu.addAction(
-                f"Inject {label}",
-                lambda r=raw: self._inject_pui_message(r),
-            )
-
-        debug_menu.addSeparator()
-        debug_menu.addSection("SPI speed injection")
-        for speed, label in ((500, "500 RPM"), (1000, "1000 RPM"), (0, "0 RPM (stop)")):
-            debug_menu.addAction(
-                f"Wrap speed: {label}",
-                lambda s=speed, l=label: self._inject_speed_response(
-                    self.wrap_motor_controller, s, f"wrap {l}"
-                ),
-            )
-        debug_menu.addSeparator()
-        for speed, label in ((10, "10 mm/s"), (5, "5 mm/s"), (0, "0 mm/s (stop)")):
-            debug_menu.addAction(
-                f"Feed speed: {label}",
-                lambda s=speed, l=label: self._inject_speed_response(
-                    self.feed_motor_controller, s, f"feed {l}"
-                ),
-            )
-        debug_menu.addSeparator()
-        debug_menu.addAction(
-            "Inject custom wrap speed...",
-            lambda: self._prompt_and_inject(self.wrap_motor_controller, is_wrap=True),
-        )
-        debug_menu.addAction(
-            "Inject custom feed speed...",
-            lambda: self._prompt_and_inject(self.feed_motor_controller, is_wrap=False),
-        )
-        debug_menu.addSeparator()
-        debug_menu.addSection("SPI error injection")
-        debug_menu.addAction(
-            "Inject wrap error 0x42",
-            lambda: self._inject_error_response(self.wrap_motor_controller, 0x42, "wrap"),
-        )
-        debug_menu.addAction(
-            "Inject feed error 0x42",
-            lambda: self._inject_error_response(self.feed_motor_controller, 0x42, "feed"),
-        )
-
-    def _inject_pui_message(self, raw: str) -> None:
-        """Inject a PUI message — only works when transport is the Mock variant."""
-        transport = self._transports.pui
-        inject = getattr(transport, "inject", None)
-        if inject is None:
-            self.alert_log.log(
-                "PUI injection only available in mock mode", "warning"
-            )
-            return
-        inject(raw)
-
-    def _inject_speed_response(
-        self, controller: MotorController, speed_units: int, label: str
-    ) -> None:
-        """Inject a fake Arduino current-speed reply into a MockSPITransport."""
-        transport = controller._transport
-        if not isinstance(transport, MockSPITransport):
-            self.alert_log.log(
-                f"Speed injection only available in mock mode ({label})", "warning"
-            )
-            return
-        packet = bytes([ResponsePrefix.CURRENT_SPEED]) + struct.pack("<H", speed_units)
-        transport.inject_response(packet)
-        self.alert_log.log(
-            f"Injected speed response → {label}: {speed_units} units", "info"
-        )
-
-    def _inject_error_response(
-        self, controller: MotorController, error_code: int, label: str
-    ) -> None:
-        """Inject a fake Arduino error reply into a MockSPITransport."""
-        transport = controller._transport
-        if not isinstance(transport, MockSPITransport):
-            self.alert_log.log(
-                f"Error injection only available in mock mode ({label})", "warning"
-            )
-            return
-        code = max(0, min(0xFF, int(error_code)))
-        packet = bytes([ResponsePrefix.ERROR, code])
-        transport.inject_response(packet)
-        self.alert_log.log(
-            f"Injected {label} motor error response: 0x{code:02X}", "warning"
-        )
-
-    def _prompt_and_inject(self, controller: MotorController, is_wrap: bool) -> None:
-        label = "wrap" if is_wrap else "feed"
-        title = f"Inject {label} speed"
-        prompt = f"Enter {label} speed in {'RPM' if is_wrap else 'mm/s'}:"
-        value, ok = QInputDialog.getDouble(self, title, prompt, 0.0, 0.0, 100000.0, 1)
-        if not ok:
-            return
-        units = int(round(value * (WRAP_RPM_UNITS_PER if is_wrap else FEED_MMS_UNITS_PER)))
-        self._inject_speed_response(controller, units, f"{label} {value:.1f}")
+        # Tools menu — developer utilities that don't affect the live path.
+        tools_menu = menu_bar.addMenu("Tools")
+        hil_action = tools_menu.addAction("HIL Test Runner…")
+        hil_action.triggered.connect(self._on_open_hil_panel)
 
     # ------------------------------------------------------------------
     # Signal wiring
@@ -840,6 +727,11 @@ class MainWindow(QMainWindow):
         self.config.detent_config = dialog.detent_config()
         save_config(self.config)
         self.alert_log.log("Detent configuration updated", "success")
+
+    def _on_open_hil_panel(self) -> None:
+        """Open the HIL Test Runner. Fully standalone — no live state affected."""
+        panel = HILTestPanel(self.config, parent=self)
+        panel.exec()
 
     # ------------------------------------------------------------------
     # Start / stop
