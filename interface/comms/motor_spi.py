@@ -85,10 +85,10 @@ def build_test_movement(movement_type: int) -> bytes:
 
 def build_request_speed() -> bytes:
     """Ask the Arduino to reply with its current speed.
-    3 bytes total: command + 2 clock bytes. The current Arduino firmware
+    3 bytes total: command + 3 clock bytes. The current Arduino firmware
     returns the queued speed packet on the next request transaction.
     """
-    return bytes([CommandPrefix.REQUEST_SPEED, 0x00, 0x00])
+    return bytes([CommandPrefix.REQUEST_SPEED, 0x00, 0x00, 0x00])
 
 
 def _normalize_spi_response(tx_data: bytes, raw: bytes) -> Optional[bytes]:
