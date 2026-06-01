@@ -49,7 +49,13 @@ from storage import StorageManager
 # Camera + vision
 from camera import CameraDetector, CameraWorker, CameraConfig
 from camera.rolling_buffer import RollingBuffer
-from processing import PitchDetectionPipeline
+from processing import PitchDetectionPipeline, PITCH_DETECTION_INTERVAL_MS
+from pitch_control import (
+    measurement_from_pitch_result,
+    process_pitch_result,
+    compute_initial_feed_speed_mm_s,
+)
+from telemetry import TelemetryLog
 
 # Widgets
 from ui.theme import Theme
@@ -88,13 +94,22 @@ class MainWindow(QMainWindow):
         self._secondary_worker: Optional[CameraWorker] = None
         self._active_camera: str = "microscope"
         self._current_raw_frame: Optional[np.ndarray] = None
-        self.pitch_pipeline = PitchDetectionPipeline(interval_ms=2000, parent=self)
+        self.pitch_pipeline = PitchDetectionPipeline(
+            interval_ms=PITCH_DETECTION_INTERVAL_MS, parent=self
+        )
         # Camera worker currently feeding the pitch pipeline (None = none).
         self._pitch_source: Optional[CameraWorker] = None
         self._buffer_log_counter = 0
         self._last_incident_save_ts: float = 0.0
         self._motor_fault_shutdown_pending = False
         self.manual_banner: Optional[ManualModeBanner] = None
+
+        # Speed-command telemetry (AUTO / HIL / manual). Shared by the camera
+        # path and feed-motor feedback to measure response time + pitch
+        # sensitivity for the testing report.
+        self.telemetry = TelemetryLog()
+        self._prev_feed_commanded: float = 0.0
+        self._last_mismatch_warn_ts: float = 0.0
 
         # Storage + disk-backed rolling recorder. Footage is spooled to flash
         # (a temp dir under the recordings folder), NOT RAM, and is only kept
@@ -352,6 +367,27 @@ class MainWindow(QMainWindow):
                 self.pitch_error = val
 
         pitch_layout.addLayout(pitch_grid)
+
+        # Minimal test-telemetry readout: commanded vs actual feed speed plus
+        # motor/pitch response and pitch sensitivity (for the testing report).
+        self._telemetry_labels: dict[str, QLabel] = {}
+        telem_grid = QGridLayout()
+        telem_grid.setContentsMargins(0, 10, 0, 0)
+        telem_grid.setHorizontalSpacing(12)
+        telem_grid.setVerticalSpacing(4)
+        for row, key in enumerate(
+            ["Feed cmd", "Feed act", "Motor resp", "Pitch resp", "Δpitch/Δfeed", "Last reason"]
+        ):
+            name = QLabel(key)
+            name.setFont(QFont("Segoe UI", 9))
+            name.setStyleSheet(f"color: {Theme.TEXT_MUTED};")
+            value = QLabel("--")
+            value.setFont(QFont("Consolas", 10))
+            telem_grid.addWidget(name, row, 0)
+            telem_grid.addWidget(value, row, 1)
+            self._telemetry_labels[key] = value
+        pitch_layout.addLayout(telem_grid)
+
         right.addWidget(pitch_card)
 
         # Controls + log
@@ -555,6 +591,22 @@ class MainWindow(QMainWindow):
 
         def on_feed(mms: float):
             self.alert_log.log(f"Feed speed: {mms:.3f} mm/s", "info")
+            # Commanded feed speed is the panel target (AUTO correction or manual).
+            self.feed_motor_panel.set_target(mms)
+            # Manual changes (GUI SET or PUI dial) are telemetry'd here; AUTO/HIL
+            # corrections are recorded inside process_pitch_result instead.
+            if self.app_state.mode == Mode.MANUAL:
+                self.telemetry.record_command(
+                    mode="MANUAL",
+                    source="GUI/PUI",
+                    target_pitch_mm=self.config.target_pitch_um / 1000.0,
+                    previous_feed_speed_mm_s=self._prev_feed_commanded,
+                    commanded_feed_speed_mm_s=mms,
+                    command_sent_successfully=self.app_state.machine_on,
+                    reason="manual feed change",
+                )
+            self._prev_feed_commanded = mms
+            self._refresh_telemetry_labels()
 
         self.app_state.mode_changed.connect(on_mode)
         self.app_state.machine_power_changed.connect(on_power)
@@ -589,7 +641,12 @@ class MainWindow(QMainWindow):
 
         def _on_feed_current(units: int) -> None:
             self._last_feed_feedback_ts = datetime.now().timestamp()
-            self.feed_motor_panel.update_metrics(units / FEED_MMS_UNITS_PER)
+            actual_mms = units / FEED_MMS_UNITS_PER
+            self.feed_motor_panel.update_metrics(actual_mms)
+            # Telemetry: actual speed + motor response time for the pending command.
+            self.telemetry.record_motor_feedback(actual_mms)
+            self._warn_on_feed_mismatch()
+            self._refresh_telemetry_labels()
 
         self.wrap_motor_controller.current_speed.connect(_on_wrap_current)
         self.feed_motor_controller.current_speed.connect(_on_feed_current)
@@ -824,6 +881,9 @@ class MainWindow(QMainWindow):
                 self.metrics_timer.start(150)
                 self.graph_timer.start(500)
 
+                # AUTO startup: seed the feed speed from the theoretical formula.
+                self._apply_auto_startup_feed_speed()
+
                 # Only runs detection if we're also in AUTO mode.
                 self._start_pitch_detection_if_allowed()
 
@@ -860,6 +920,67 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # Pitch-detection lifecycle
     # ------------------------------------------------------------------
+
+    def _apply_auto_startup_feed_speed(self) -> None:
+        """Seed the feed speed from the theoretical formula on AUTO startup.
+
+        Only runs in AUTO mode (manual keeps the operator's speed). Skipped
+        silently if the geometry is invalid (e.g. wrapper speed is 0).
+        """
+        if self.app_state.mode != Mode.AUTO:
+            return
+        v_initial = compute_initial_feed_speed_mm_s(
+            wrapper_rpm=self.app_state.wrap_speed_rpm,
+            target_pitch_mm=self.config.target_pitch_um / 1000.0,
+            tube_diameter_mm=self.config.tube_diameter_mm,
+            wire_diameter_mm=self.config.wire_thickness_um / 1000.0,
+        )
+        if v_initial is None:
+            return
+        # gui_set_feed_speed clamps to the safe feed-speed bounds + sends SET_SPEED.
+        self.app_state.gui_set_feed_speed(v_initial)
+        self.alert_log.log(
+            f"AUTO startup feed speed → {self.app_state.feed_speed_mms:.3f} mm/s "
+            f"(theoretical {v_initial:.3f})",
+            "info",
+        )
+
+    # ------------------------------------------------------------------
+    # Telemetry (commanded vs actual feed speed + testing-report readouts)
+    # ------------------------------------------------------------------
+
+    def _warn_on_feed_mismatch(self) -> None:
+        """Surface a non-blocking warning if actual feed speed drifts from the
+        commanded speed. Debounced; does NOT switch to Manual Mode."""
+        warning = self.telemetry.mismatch_warning(self.app_state.feed_speed_mms)
+        if warning is None:
+            return
+        now = datetime.now().timestamp()
+        if now - self._last_mismatch_warn_ts < 5.0:
+            return
+        self._last_mismatch_warn_ts = now
+        self.alert_log.log(warning, "warning")
+
+    def _refresh_telemetry_labels(self) -> None:
+        """Update the minimal commanded/actual + response/sensitivity readout."""
+        t = self.telemetry
+        self._telemetry_labels["Feed cmd"].setText(f"{self.app_state.feed_speed_mms:.3f} mm/s")
+        self._telemetry_labels["Feed act"].setText(t.actual_feed_speed_display())
+
+        motor_ms = t.last_motor_response_time_ms
+        self._telemetry_labels["Motor resp"].setText(
+            f"{motor_ms:.0f} ms" if motor_ms is not None else "--"
+        )
+        pitch_ms = t.last_pitch_response_time_ms
+        self._telemetry_labels["Pitch resp"].setText(
+            f"{pitch_ms:.0f} ms" if pitch_ms is not None else "--"
+        )
+        sens = t.last_pitch_sensitivity_per_feed_speed
+        self._telemetry_labels["Δpitch/Δfeed"].setText(
+            f"{sens:.4f} mm per mm/s" if sens is not None else "--"
+        )
+        last = t.last
+        self._telemetry_labels["Last reason"].setText(last.reason if last else "--")
 
     def _start_pitch_detection_if_allowed(self) -> None:
         """Start pitch detection only when the machine is RUNNING and in AUTO.
@@ -1118,7 +1239,7 @@ class MainWindow(QMainWindow):
 
             self.pitch_actual.setText(f"{result.mean_pitch_um:.2f} μm")
 
-            target_um = 1000.0
+            target_um = self.config.target_pitch_um
             error_pct = abs((result.mean_pitch_um - target_um) / target_um * 100)
             self.pitch_error.setText(f"{error_pct:.1f}%")
 
@@ -1146,6 +1267,18 @@ class MainWindow(QMainWindow):
             # A FAILED reading is a genuine fault — keep the recent footage.
             if result.confidence == "FAILED":
                 self._persist_recording("pitch_failed")
+
+            # Route the real result through the SAME shared control backend the
+            # HIL test uses: HIGH/MEDIUM in AUTO+running → feed correction;
+            # LOW/FAILED → Manual Mode; off/manual → no-op (guarded inside).
+            measurement = measurement_from_pitch_result(result, source="camera")
+            self.alert_log.log(
+                process_pitch_result(
+                    measurement, self.app_state, self.config, telemetry=self.telemetry
+                ),
+                "info",
+            )
+            self._refresh_telemetry_labels()
         except Exception as e:
             self.alert_log.log(f"Error processing pitch result: {e}", "error")
 

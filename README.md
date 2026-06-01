@@ -142,12 +142,11 @@ touches the panel and overwrite whatever the GUI last set.
 State transitions emit Qt signals (`mode_changed`, `wrap_speed_changed`,
 etc.) which the GUI subscribes to.
 
-## Testing
+## Testing: Unit tests
 
 ```bash
 cd interface
-source venv/bin/activate
-python -m pytest tests/test_pui_protocol.py tests/test_motor_spi.py tests/test_app_state.py -v
+pytest -q tests/name_of_file.py
 ```
 
 The protocol layer is fully tested without hardware via `MockPUITransport`

@@ -40,6 +40,12 @@ except ImportError:
     estimate_pitch = None
 
 
+# Pitch estimation runs on a timer at this period — NOT on every camera
+# frame. The camera feed updates `_latest_frame` continuously; detection
+# only processes the most recent frame each tick.
+PITCH_DETECTION_INTERVAL_MS = 2000
+
+
 class PitchDetectionPipeline(QObject):
     """
     Integrates pitch_estimate.py with live camera feed.
@@ -58,12 +64,13 @@ class PitchDetectionPipeline(QObject):
     manual_mode_triggered = pyqtSignal(str)  # Confidence level
     detection_error = pyqtSignal(str)         # Error message
 
-    def __init__(self, interval_ms: int = 2000, parent=None):
+    def __init__(self, interval_ms: int = PITCH_DETECTION_INTERVAL_MS, parent=None):
         """
         Initialize pitch detection pipeline.
 
         Args:
-            interval_ms: Detection interval in milliseconds (default: 2000 = 2 seconds)
+            interval_ms: Detection interval in milliseconds (default:
+                PITCH_DETECTION_INTERVAL_MS = 2000 = 2 seconds)
             parent: Parent QObject
         """
         super().__init__(parent)
