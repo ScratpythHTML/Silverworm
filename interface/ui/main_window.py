@@ -108,6 +108,11 @@ class MainWindow(QMainWindow):
         self._motor_fault_shutdown_pending = False
         self.manual_banner: Optional[ManualModeBanner] = None
 
+        # When False, the live camera pitch pipeline does NOT run or drive
+        # corrections — pitch values come only from HIL injection (simulating
+        # the microscope). Enable once a real microscope is attached.
+        self._camera_correction_enabled = False
+
         # Speed-command telemetry (AUTO / HIL / manual). Shared by the camera
         # path and feed-motor feedback to measure response time + pitch
         # sensitivity for the testing report.
@@ -435,6 +440,16 @@ class MainWindow(QMainWindow):
         tools_menu = menu_bar.addMenu("Tools")
         hil_action = tools_menu.addAction("HIL Test Runner…")
         hil_action.triggered.connect(self._on_open_hil_panel)
+
+        # Off by default: live camera pitch detection does not drive motor
+        # corrections (avoids garbage corrections from a webcam / no microscope).
+        # Enable once a real microscope is attached.
+        self._camera_correction_action = tools_menu.addAction(
+            "Live camera pitch correction"
+        )
+        self._camera_correction_action.setCheckable(True)
+        self._camera_correction_action.setChecked(self._camera_correction_enabled)
+        self._camera_correction_action.toggled.connect(self._on_camera_correction_toggled)
 
     # ------------------------------------------------------------------
     # Signal wiring
@@ -810,6 +825,24 @@ class MainWindow(QMainWindow):
         # Restore the real config target after the HIL session ends.
         self._update_pitch_target_label()
 
+    def _on_camera_correction_toggled(self, enabled: bool) -> None:
+        """Enable/disable the live camera pitch pipeline driving corrections.
+        Starts detection immediately if turned on while running in AUTO;
+        stops it (and frees the camera feed) when turned off."""
+        self._camera_correction_enabled = enabled
+        if enabled:
+            self.alert_log.log(
+                "Live camera pitch correction ENABLED — camera now drives feed speed",
+                "warning",
+            )
+            self._start_pitch_detection_if_allowed()
+        else:
+            self.alert_log.log(
+                "Live camera pitch correction disabled — corrections come from HIL only",
+                "info",
+            )
+            self._stop_pitch_detection()
+
     # ------------------------------------------------------------------
     # Start / stop
     # ------------------------------------------------------------------
@@ -850,8 +883,10 @@ class MainWindow(QMainWindow):
                 self.metrics_timer.start(150)
                 self.graph_timer.start(500)
 
-                # AUTO startup: seed the feed speed from the theoretical formula.
-                self._apply_auto_startup_feed_speed()
+                # Motors start at the configured initial feed speed (already in
+                # AppState from startup). The feed speed is deliberately NOT
+                # changed on Start — it only updates when an AUTO pitch
+                # correction (or a HIL inject) is applied.
 
                 # Only runs detection if we're also in AUTO mode.
                 self._start_pitch_detection_if_allowed()
@@ -959,6 +994,10 @@ class MainWindow(QMainWindow):
         to call repeatedly — it no-ops if already running or not allowed.
         """
         if not self._is_running or self.app_state.mode != Mode.AUTO:
+            return
+        # Live camera correction is opt-in. While disabled, the camera is a
+        # viewfinder only and pitch corrections come from HIL injection.
+        if not self._camera_correction_enabled:
             return
         if self.camera_worker is None:
             return

@@ -26,14 +26,35 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
     QLabel, QDoubleSpinBox, QComboBox, QCheckBox,
-    QPushButton, QTextEdit, QFileDialog, QMessageBox,
+    QPushButton, QTextEdit, QFileDialog, QMessageBox, QWidget,
 )
+
+from PyQt6.QtWidgets import QFrame
 
 from app_state import AppState
 from config import AppConfig
 from pitch_control import PitchMeasurement, process_pitch_result
 from telemetry import TelemetryLog
 from hil_runner import HIL_SCENARIOS, run_hil_scenario, export_csv, default_csv_path
+
+
+def _field_row(label: str, widget) -> QHBoxLayout:
+    """Label (fixed 160 px) + widget on one row — used everywhere in the panel."""
+    row = QHBoxLayout()
+    row.setSpacing(8)
+    lbl = QLabel(label)
+    lbl.setFixedWidth(160)
+    lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    row.addWidget(lbl)
+    row.addWidget(widget, 1)
+    return row
+
+
+def _hline() -> QFrame:
+    line = QFrame()
+    line.setFrameShape(QFrame.Shape.HLine)
+    line.setStyleSheet("color: #2d3748;")
+    return line
 
 
 class HILTestPanel(QDialog):
@@ -56,7 +77,7 @@ class HILTestPanel(QDialog):
     ):
         super().__init__(parent)
         self.setWindowTitle("HIL Test Runner")
-        self.setMinimumWidth(580)
+        self.setMinimumWidth(680)
         self.setMinimumHeight(600)
 
         self._config = config
@@ -76,124 +97,104 @@ class HILTestPanel(QDialog):
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
+        root.setContentsMargins(12, 12, 12, 12)
         root.setSpacing(10)
 
         # ── hardware mode toggle ──────────────────────────────────────
-        mode_row = QHBoxLayout()
         self._live_chk = QCheckBox("Live mode — use real hardware / SPI")
         self._live_chk.setEnabled(self._live_app_state is not None)
         self._live_chk.setChecked(self._live_app_state is not None)
         self._live_chk.toggled.connect(self._on_mode_toggled)
+        root.addWidget(self._live_chk)
+
         live_hint = QLabel(
-            "(inject pitch into running AppState → real SPI → Group B feed motor)"
+            "Inject pitch into running AppState → real SPI → Group B feed motor"
             if self._live_app_state is not None
-            else "(no live hardware available — mock mode only)"
+            else "No live hardware available — mock mode only"
         )
         live_hint.setStyleSheet("color: grey; font-size: 10px;")
-        mode_row.addWidget(self._live_chk)
-        mode_row.addWidget(live_hint, 1)
-        root.addLayout(mode_row)
+        live_hint.setWordWrap(True)
+        root.addWidget(live_hint)
 
         # ── shared parameters ─────────────────────────────────────────
-        params = QFormLayout()
-        params.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        params.setSpacing(6)
+        root.addWidget(_hline())
+        root.addLayout(_field_row("Target pitch:", self._make_target_pitch_spin()))
+        root.addLayout(_field_row("Correction gain:", self._make_gain_spin()))
 
-        self._target_pitch = QDoubleSpinBox()
-        self._target_pitch.setRange(0.1, 50.0)
-        self._target_pitch.setDecimals(2)
-        self._target_pitch.setSuffix(" mm")
-        self._target_pitch.setValue(self._config.target_pitch_um / 1000.0)
-        self._target_pitch.valueChanged.connect(
-            lambda v: self.target_pitch_changed.emit(v)
-        )
-        params.addRow("Target pitch:", self._target_pitch)
-
-        self._gain = QDoubleSpinBox()
-        self._gain.setRange(0.01, 2.0)
-        self._gain.setDecimals(2)
-        self._gain.setSingleStep(0.1)
-        self._gain.setValue(1.0)
-        params.addRow("Correction gain:", self._gain)
-
-        root.addLayout(params)
-
-        # ── live inject section ───────────────────────────────────────
-        self._inject_group = QGroupBox("Inject pitch reading (live or mock single-shot)")
+        # ── inject section ────────────────────────────────────────────
+        self._inject_group = QGroupBox("Inject pitch reading")
         inj = QVBoxLayout(self._inject_group)
+        inj.setSpacing(8)
 
-        # live: show current feed speed so the operator knows where they're starting
+        # live mode status (hidden in mock mode)
         self._live_feed_label = QLabel()
         self._live_feed_label.setStyleSheet("color: grey; font-size: 10px;")
         inj.addWidget(self._live_feed_label)
         self._update_live_feed_label()
 
-        # mock single-shot: configurable initial feed speed (hidden in live mode)
-        self._mock_feed_row = QHBoxLayout()
-        self._mock_feed_row.addWidget(QLabel("Starting feed speed:"))
+        # mock: starting feed speed (hidden in live mode)
         self._mock_initial_feed = QDoubleSpinBox()
-        self._mock_initial_feed.setRange(0.1, 20.0)
+        self._mock_initial_feed.setRange(0.0, 20.0)
         self._mock_initial_feed.setDecimals(3)
         self._mock_initial_feed.setSuffix(" mm/s")
         self._mock_initial_feed.setValue(self._config.initial_feed_speed_mms or 10.0)
-        self._mock_feed_row.addWidget(self._mock_initial_feed)
         self._mock_feed_widget = QWidget()
-        self._mock_feed_widget.setLayout(self._mock_feed_row)
+        self._mock_feed_widget.setLayout(
+            _field_row("Starting feed speed:", self._mock_initial_feed)
+        )
         inj.addWidget(self._mock_feed_widget)
 
         # confidence
-        conf_row = QHBoxLayout()
-        conf_row.addWidget(QLabel("Confidence:"))
         self._conf_box = QComboBox()
         for c in ("HIGH", "MEDIUM", "LOW", "FAILED"):
             self._conf_box.addItem(c)
-        conf_row.addWidget(self._conf_box)
-        conf_row.addStretch()
-        inj.addLayout(conf_row)
+        inj.addLayout(_field_row("Confidence:", self._conf_box))
 
-        # quick-inject buttons (under / over / at target)
+        # quick-inject buttons
+        quick_label = QLabel("Quick inject:")
+        quick_label.setStyleSheet("font-size: 11px;")
+        inj.addWidget(quick_label)
         quick = QHBoxLayout()
-        quick.addWidget(QLabel("Quick inject:"))
+        quick.setSpacing(6)
         for label, pct in (("−20%", 0.80), ("−10%", 0.90),
-                           ("At target", 1.00),
+                           ("On target", 1.00),
                            ("+10%", 1.10), ("+20%", 1.20)):
             btn = QPushButton(label)
-            btn.setFixedHeight(28)
+            btn.setFixedHeight(30)
             btn.clicked.connect(lambda _checked, p=pct: self._on_inject_quick(p))
-            quick.addWidget(btn)
+            quick.addWidget(btn, 1)
         inj.addLayout(quick)
 
         # custom pitch + inject
-        custom_row = QHBoxLayout()
-        custom_row.addWidget(QLabel("Custom pitch:"))
         self._custom_pitch = QDoubleSpinBox()
         self._custom_pitch.setRange(0.01, 100.0)
         self._custom_pitch.setDecimals(3)
         self._custom_pitch.setSuffix(" mm")
         self._custom_pitch.setValue(self._config.target_pitch_um / 1000.0)
-        custom_row.addWidget(self._custom_pitch)
         inject_btn = QPushButton("Inject →")
-        inject_btn.setFixedHeight(28)
+        inject_btn.setFixedHeight(30)
         inject_btn.clicked.connect(
             lambda: self._do_inject(self._custom_pitch.value(), self._conf_box.currentText())
         )
+        custom_row = QHBoxLayout()
+        custom_row.setSpacing(6)
+        custom_row.addWidget(QLabel("Custom pitch:"))
+        custom_row.addWidget(self._custom_pitch, 1)
         custom_row.addWidget(inject_btn)
         inj.addLayout(custom_row)
 
         root.addWidget(self._inject_group)
 
-        # ── mock-only: batch scenario ─────────────────────────────────
+        # ── batch scenario (mock only) ────────────────────────────────
         self._batch_group = QGroupBox("Batch scenario (mock mode only)")
         batch = QVBoxLayout(self._batch_group)
+        batch.setSpacing(8)
 
-        sc_row = QHBoxLayout()
-        sc_row.addWidget(QLabel("Scenario:"))
         self._scenario_box = QComboBox()
         for key, sc in HIL_SCENARIOS.items():
             self._scenario_box.addItem(sc.name, userData=key)
         self._scenario_box.currentIndexChanged.connect(self._on_scenario_changed)
-        sc_row.addWidget(self._scenario_box, 1)
-        batch.addLayout(sc_row)
+        batch.addLayout(_field_row("Scenario:", self._scenario_box))
 
         self._desc_label = QLabel()
         self._desc_label.setWordWrap(True)
@@ -201,33 +202,29 @@ class HILTestPanel(QDialog):
         batch.addWidget(self._desc_label)
         self._on_scenario_changed(0)
 
-        batch_params = QFormLayout()
-        batch_params.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        batch_params.setSpacing(6)
-
         self._initial_feed = QDoubleSpinBox()
         self._initial_feed.setRange(0.1, 20.0)
         self._initial_feed.setDecimals(3)
         self._initial_feed.setSuffix(" mm/s")
         self._initial_feed.setValue(10.0)
-        batch_params.addRow("Initial feed speed:", self._initial_feed)
+        batch.addLayout(_field_row("Initial feed speed:", self._initial_feed))
 
         self._delay_ms = QDoubleSpinBox()
         self._delay_ms.setRange(0.0, 5000.0)
         self._delay_ms.setDecimals(0)
         self._delay_ms.setSuffix(" ms")
         self._delay_ms.setValue(150.0)
-        batch_params.addRow("Mock feedback delay:", self._delay_ms)
+        batch.addLayout(_field_row("Mock feedback delay:", self._delay_ms))
 
         self._manual_speed = QDoubleSpinBox()
         self._manual_speed.setRange(0.0, 20.0)
         self._manual_speed.setDecimals(3)
         self._manual_speed.setSuffix(" mm/s")
         self._manual_speed.setValue(8.0)
-        batch_params.addRow("Manual speed (manual scenario):", self._manual_speed)
-        batch.addLayout(batch_params)
+        batch.addLayout(_field_row("Manual speed:", self._manual_speed))
 
         run_btn = QPushButton("Run Batch Scenario")
+        run_btn.setFixedHeight(32)
         run_btn.clicked.connect(self._on_run_batch)
         batch.addWidget(run_btn)
 
@@ -258,6 +255,26 @@ class HILTestPanel(QDialog):
 
         # initial visibility
         self._on_mode_toggled(self._live_chk.isChecked())
+
+    # helpers called during _setup_ui (before instance vars exist)
+    def _make_target_pitch_spin(self) -> QDoubleSpinBox:
+        self._target_pitch = QDoubleSpinBox()
+        self._target_pitch.setRange(0.1, 50.0)
+        self._target_pitch.setDecimals(2)
+        self._target_pitch.setSuffix(" mm")
+        self._target_pitch.setValue(self._config.target_pitch_um / 1000.0)
+        self._target_pitch.valueChanged.connect(
+            lambda v: self.target_pitch_changed.emit(v)
+        )
+        return self._target_pitch
+
+    def _make_gain_spin(self) -> QDoubleSpinBox:
+        self._gain = QDoubleSpinBox()
+        self._gain.setRange(0.01, 2.0)
+        self._gain.setDecimals(2)
+        self._gain.setSingleStep(0.1)
+        self._gain.setValue(1.0)
+        return self._gain
 
     # ------------------------------------------------------------------
     # Mode toggle

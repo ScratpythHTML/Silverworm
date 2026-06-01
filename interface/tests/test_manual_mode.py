@@ -134,6 +134,7 @@ def _make_window_stub(*, running: bool, mode):
     mw.app_state = SimpleNamespace(mode=mode)
     mw.camera_worker = _FakeWorker()
     mw._pitch_source = None
+    mw._camera_correction_enabled = True  # exercise the start path
     mw.pitch_pipeline = PitchDetectionPipeline(interval_ms=1000)
     mw.alert_log = SimpleNamespace(log=lambda *a, **k: None)
     return mw
@@ -147,6 +148,18 @@ def test_mainwindow_starts_pitch_when_running_and_auto(qapp):
 
     assert mw.pitch_pipeline.is_active()
     assert mw._pitch_source is mw.camera_worker
+
+
+def test_mainwindow_camera_correction_disabled_does_not_start_pitch(qapp):
+    """With live camera correction OFF, detection must not start (HIL-only)."""
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.AUTO)
+    mw._camera_correction_enabled = False
+
+    mw._start_pitch_detection_if_allowed()
+
+    assert not mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is None
 
 
 def test_mainwindow_does_not_start_pitch_in_manual(qapp):
