@@ -91,13 +91,11 @@ void loop() {
   stage.poll();
   bldc.poll();
   enc.poll();
-  motorSpiSetFeedbackRpm(0x01); // TODO: change this back to enc.rpm() after done testing
+  motorSpiSetFeedbackRpm(0); // TODO: change this back to enc.rpm() after done testing
 
    // ── SPI commands (normal path) ────────────────────────────────────────────
    uint8_t stopType = motorSpiTakeStopType();
-
-  // ── SPI commands (normal path) ────────────────────────────────────────────
-  int16_t spiRpm = 0;
+   int16_t spiRpm = 0;
   if (motorSpiTakeStartRpm(spiRpm)) {
     bldc.enable(true);
     bldc.startRampTo(spiRpm);
@@ -295,25 +293,25 @@ void loop() {
   }
 
   // ── Progress print ─────────────────────────────────────────────────────────
-  if (millis() - lastPrintMs >= 500UL) {
-    lastPrintMs = millis();
-    if (moving) {
-      Serial.print("pos: ");
-      Serial.print(stage.positionMm(), 1);
-      Serial.print(" mm  target: ");
-      Serial.print(targetPos, 1);
-      Serial.print(" mm  |  ");
-    }
-    if (bldc.isEnabled()) {
-      Serial.print("spool: ");
-      Serial.print(bldc.smoothedRpm());
-      Serial.print(" / ");
-      Serial.print(bldc.targetRpm());
-      Serial.print(" RPM (avg1s)");
-      if (bldc.hasFault()) Serial.print("  [FAULT]");
-      Serial.println();
-    } else if (moving) {
-      Serial.println();
-    }
-  }
+  // if (millis() - lastPrintMs >= 500UL) {
+  //   lastPrintMs = millis();
+  //   if (moving) {
+  //     Serial.print("pos: ");
+  //     Serial.print(stage.positionMm(), 1);
+  //     Serial.print(" mm  target: ");
+  //     Serial.print(targetPos, 1);
+  //     Serial.print(" mm  |  ");
+  //   }
+  //   if (bldc.isEnabled()) {
+  //     Serial.print("spool: ");
+  //     Serial.print(bldc.smoothedRpm());
+  //     Serial.print(" / ");
+  //     Serial.print(bldc.targetRpm());
+  //     Serial.print(" RPM (avg1s)");
+  //     if (bldc.hasFault()) Serial.print("  [FAULT]");
+  //     Serial.println();
+  //   } else if (moving) {
+  //     Serial.println();
+  //   }
+  // }
 }

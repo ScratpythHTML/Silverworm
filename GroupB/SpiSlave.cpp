@@ -32,7 +32,11 @@ bool setReply(byte a, byte b, byte c, byte length) {
   bool ok = false;
   noInterrupts();
   if (spiIdle()) {
-    replyBuffer[0] = a;
+    Serial.print("setReply: ");
+    Serial.print(a);
+    Serial.print(b);
+    Serial.print(c);
+    Serial.print(length);    replyBuffer[0] = a;
     replyBuffer[1] = b;
     replyBuffer[2] = c;
     replyLength = length;
@@ -46,6 +50,8 @@ bool setReply(byte a, byte b, byte c, byte length) {
 // Fires once per SPI byte transferred (master clocks it).
 ISR(SPI_STC_vect) {
   byte c = SPDR;  // byte received from master
+  Serial.print("SPI byte received: ");
+  Serial.println(c);
 
   if (bufferIndex < sizeof(receivedBuffer)) {
     receivedBuffer[bufferIndex++] = c;
@@ -53,11 +59,13 @@ ISR(SPI_STC_vect) {
 
   // First byte determines expected command length
   if (bufferIndex == 1) {
-    if (c == 0x01 || c == 0x03) {
-      expectedCommandLength = 3;
+    if (c == 0x01 || c == 0x03 ) {
+      expectedCommandLength = 3; 
+    } else if (c == 0x05) {
+      expectedCommandLength = 4;
     } else if (c == 0x02) {
       expectedCommandLength = 2;
-    } else if (c == 0x04 || c == 0x05) {
+    } else if (c == 0x04 ) {
       expectedCommandLength = 1;  // single-byte commands: kTest, kQuery
     } else {
       bufferIndex = 0;
@@ -83,8 +91,10 @@ ISR(SPI_STC_vect) {
       {
         const int16_t rpm = isrFeedbackRpm;
         replyBuffer[0] = 0x01;
-        replyBuffer[1] = static_cast<byte>(rpm & 0xFF);
-        replyBuffer[2] = static_cast<byte>((rpm >> 8) & 0xFF);
+        replyBuffer[1] = 0x02;
+        replyBuffer[2] = 0x03;
+        //replyBuffer[1] = static_cast<byte>(rpm & 0xFF);
+        //replyBuffer[2] = static_cast<byte>((rpm >> 8) & 0xFF);
         replyLength = 3;
         break;
       }
@@ -96,7 +106,7 @@ ISR(SPI_STC_vect) {
         replyBuffer[0] = 0x03;             // kAck
         replyBuffer[1] = completedCommand[0];
         replyBuffer[2] = 0;
-        replyLength = 1;
+        replyLength = 2;
         newCommand = true;
         break;
 
