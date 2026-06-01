@@ -52,6 +52,9 @@ class AppConfig:
     target_pitch_um: float = 250.0
     wire_thickness_um: float = 100.0
     tube_diameter_mm: float = 5.0
+    # Initial feed-motor speed (mm/s) set before AUTO correction takes over.
+    # Sent as the START payload when the machine is powered on.
+    initial_feed_speed_mms: float = 0.0
     detent_config: DetentConfig = field(default_factory=DetentConfig)
     manual_mode_gui_enabled: bool = False
     remember_settings: bool = True
@@ -78,6 +81,7 @@ class AppConfig:
             target_pitch_um=float(data.get("target_pitch_um", 250.0)),
             wire_thickness_um=float(data.get("wire_thickness_um", 100.0)),
             tube_diameter_mm=float(data.get("tube_diameter_mm", 5.0)),
+            initial_feed_speed_mms=float(data.get("initial_feed_speed_mms", 0.0)),
             detent_config=detent,
             manual_mode_gui_enabled=bool(data.get("manual_mode_gui_enabled", False)),
             remember_settings=bool(data.get("remember_settings", True)),

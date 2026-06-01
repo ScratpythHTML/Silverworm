@@ -146,6 +146,9 @@ class MainWindow(QMainWindow):
         self._connect_motor_feedback()
         self._setup_controller_callbacks()
         self._apply_styles()
+        # Pre-load speed setpoints from config — must be after signal wiring
+        # so the motor panel target label and telemetry labels update too.
+        self._apply_initial_speeds()
 
         self.alert_log.log("System initialized", "success")
         if self._transports.is_mock:
@@ -366,7 +369,9 @@ class MainWindow(QMainWindow):
             val.setFont(QFont("Consolas", 18, QFont.Weight.Bold))
             pitch_grid.addWidget(val, 1, col)
 
-            if label == "ACTUAL":
+            if label == "TARGET":
+                self.pitch_target = val
+            elif label == "ACTUAL":
                 self.pitch_actual = val
             elif label == "ERROR":
                 self.pitch_error = val
@@ -731,9 +736,11 @@ class MainWindow(QMainWindow):
         self.config.target_pitch_um = new.target_pitch_um
         self.config.wire_thickness_um = new.wire_thickness_um
         self.config.tube_diameter_mm = new.tube_diameter_mm
+        self.config.initial_feed_speed_mms = new.initial_feed_speed_mms
         self.config.remember_settings = new.remember_settings
         self.config.hw_platform = new.hw_platform
         save_config(self.config)
+        self._update_pitch_target_label()
 
         # Overlay geometry depends on these values, but is only shown in manual mode.
         if self.app_state.mode == Mode.MANUAL:
@@ -757,10 +764,51 @@ class MainWindow(QMainWindow):
         save_config(self.config)
         self.alert_log.log("Detent configuration updated", "success")
 
+    def _apply_initial_speeds(self) -> None:
+        """Pre-load the configured initial feed speed into AppState (machine off
+        → no SPI yet) so the motor panel shows the right target on startup.
+        When the machine is turned on, AppState sends this as the START payload."""
+        self._update_pitch_target_label()
+        if self.config.initial_feed_speed_mms > 0:
+            self.app_state.gui_set_feed_speed(self.config.initial_feed_speed_mms)
+
+    def _update_pitch_target_label(self) -> None:
+        """Refresh the TARGET cell in the pitch metrics card from current config."""
+        self.pitch_target.setText(
+            f"{self.config.target_pitch_um / 1000.0:.3f} mm"
+        )
+
+    def _on_hil_target_pitch_changed(self, target_mm: float) -> None:
+        """HIL panel changed its target pitch — update the GUI display so the
+        recording shows the HIL target, not the config default."""
+        self.pitch_target.setText(f"{target_mm:.3f} mm")
+
+    def _on_hil_speed_commanded(self, speed_mm_s: float) -> None:
+        """Called whenever the HIL panel calculates a correction (mock or live).
+        Updates the feed motor panel target and the telemetry readout so the
+        operator sees the new commanded speed immediately."""
+        self.feed_motor_panel.set_target(speed_mm_s)
+        self._refresh_telemetry_labels()
+
     def _on_open_hil_panel(self) -> None:
-        """Open the HIL Test Runner. Fully standalone — no live state affected."""
-        panel = HILTestPanel(self.config, parent=self)
+        """Open the HIL Test Runner.
+
+        Passes the live AppState and TelemetryLog so the panel can inject
+        pitch readings directly into the running feed-motor SPI path when
+        real hardware is connected. When no hardware is attached the panel
+        falls back to mock mode automatically.
+        """
+        panel = HILTestPanel(
+            self.config,
+            app_state=self.app_state,
+            telemetry=self.telemetry,
+            parent=self,
+        )
+        panel.speed_commanded.connect(self._on_hil_speed_commanded)
+        panel.target_pitch_changed.connect(self._on_hil_target_pitch_changed)
         panel.exec()
+        # Restore the real config target after the HIL session ends.
+        self._update_pitch_target_label()
 
     # ------------------------------------------------------------------
     # Start / stop

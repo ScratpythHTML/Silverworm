@@ -9,7 +9,10 @@ calibration.
 No database, no plotting — just a list of dataclass records held in memory.
 The same TelemetryLog is shared by the camera (AUTO), HIL and manual paths so
 the report data is uniform.
-"""
+
+note that these tests assume motor response works, i.e we just sub in a number as if the
+motor actually sends that value to us via SPI. We still need to verify that the SPI transport
+works properly and then see if we can log these telemetry values in a real test with the real hardware."""
 
 from __future__ import annotations
 
