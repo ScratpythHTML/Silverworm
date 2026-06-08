@@ -67,8 +67,8 @@ class AnimatedButton(QPushButton):
                 background-color: {self._darken_color(self.base_color, 10)};
             }}
             QPushButton:disabled {{
-                background-color: {Theme.BG_SECONDARY};
-                color: {Theme.TEXT_DISABLED};
+                background-color: {self._darken_color(self.base_color, 24)};
+                color: {Theme.TEXT_SECONDARY};
             }}
         """)
 

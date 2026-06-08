@@ -24,7 +24,7 @@ from typing import Optional
 import numpy as np
 
 from PyQt6.QtCore import Qt, QTimer, QStandardPaths
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QPushButton, QFileDialog,
@@ -253,9 +253,21 @@ class MainWindow(QMainWindow):
         header = QHBoxLayout(header_widget)
         header.setContentsMargins(0, 0, 0, 12)
 
-        title = QLabel("Silverworm Control System")
-        title.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
-        title.setStyleSheet(f"color: {Theme.TEXT_PRIMARY};")
+        # Brand wordmark (falls back to the text title if the image is missing).
+        # Scaled by height with aspect preserved; the wide left header has plenty
+        # of room, so this stays a header banner without disturbing the layout.
+        title = QLabel()
+        logo_path = Path(__file__).resolve().parents[2] / "logos" / "Text logoresized.png"
+        logo = QPixmap(str(logo_path))
+        if not logo.isNull():
+            title.setPixmap(
+                logo.scaledToHeight(52, Qt.TransformationMode.SmoothTransformation)
+            )
+            title.setStyleSheet("background: transparent;")
+        else:
+            title.setText("Silverworm Control System")
+            title.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
+            title.setStyleSheet(f"color: {Theme.TEXT_PRIMARY};")
 
         self.status_indicator = PulsingIndicator(Theme.WARNING)
         self.status_label = QLabel("STANDBY")
@@ -384,26 +396,6 @@ class MainWindow(QMainWindow):
 
         pitch_layout.addLayout(pitch_grid)
 
-        # Minimal test-telemetry readout: commanded vs actual feed speed plus
-        # motor/pitch response and pitch sensitivity (for the testing report).
-        self._telemetry_labels: dict[str, QLabel] = {}
-        telem_grid = QGridLayout()
-        telem_grid.setContentsMargins(0, 10, 0, 0)
-        telem_grid.setHorizontalSpacing(12)
-        telem_grid.setVerticalSpacing(4)
-        for row, key in enumerate(
-            ["Feed cmd", "Feed act", "Motor resp", "Pitch resp", "Δpitch/Δfeed", "Last reason"]
-        ):
-            name = QLabel(key)
-            name.setFont(QFont("Segoe UI", 9))
-            name.setStyleSheet(f"color: {Theme.TEXT_MUTED};")
-            value = QLabel("--")
-            value.setFont(QFont("Consolas", 10))
-            telem_grid.addWidget(name, row, 0)
-            telem_grid.addWidget(value, row, 1)
-            self._telemetry_labels[key] = value
-        pitch_layout.addLayout(telem_grid)
-
         right.addWidget(pitch_card)
 
         # Controls + log
@@ -461,7 +453,6 @@ class MainWindow(QMainWindow):
         self.controls.stop_clicked.connect(self._on_stop)
         self.controls.snapshot_clicked.connect(self._on_snapshot)
         self.controls.recalibrate_clicked.connect(self._on_recalibrate)
-        self.controls.test_clicked.connect(self._on_test_motors)
         self.camera.position_changed.connect(self._on_position_changed)
 
         self.controls.manual_mode_toggled.connect(self._on_manual_mode_button)
@@ -894,14 +885,6 @@ class MainWindow(QMainWindow):
     # Start / stop
     # ------------------------------------------------------------------
 
-    def _on_test_motors(self) -> None:
-        try:
-            self.wrap_motor_controller.test_movement(1)
-            self.feed_motor_controller.test_movement(1)
-            self.alert_log.log("Test movement sent to both motors (0x04)", "info")
-        except Exception as e:
-            self.alert_log.log(f"Test movement failed: {e}", "error")
-
     def _on_start(self) -> None:
         self.app_state.gui_set_machine_on(True)
 
@@ -1013,25 +996,8 @@ class MainWindow(QMainWindow):
         self.alert_log.log(warning, "warning")
 
     def _refresh_telemetry_labels(self) -> None:
-        """Update the minimal commanded/actual + response/sensitivity readout."""
-        t = self.telemetry
-        self._telemetry_labels["Feed cmd"].setText(f"{self.app_state.feed_speed_mms:.3f} mm/s")
-        self._telemetry_labels["Feed act"].setText(t.actual_feed_speed_display())
-
-        motor_ms = t.last_motor_response_time_ms
-        self._telemetry_labels["Motor resp"].setText(
-            f"{motor_ms:.0f} ms" if motor_ms is not None else "--"
-        )
-        pitch_ms = t.last_pitch_response_time_ms
-        self._telemetry_labels["Pitch resp"].setText(
-            f"{pitch_ms:.0f} ms" if pitch_ms is not None else "--"
-        )
-        sens = t.last_pitch_sensitivity_per_feed_speed
-        self._telemetry_labels["Δpitch/Δfeed"].setText(
-            f"{sens:.4f} mm per mm/s" if sens is not None else "--"
-        )
-        last = t.last
-        self._telemetry_labels["Last reason"].setText(last.reason if last else "--")
+        """No-op: the on-screen telemetry readout was removed; telemetry data
+        is still tracked on ``self.telemetry`` for recordings/export."""
 
     def _start_pitch_detection_if_allowed(self) -> None:
         """Start pitch detection only when the machine is RUNNING and in AUTO.

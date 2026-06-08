@@ -1,10 +1,19 @@
-"""Start/Stop/Snapshot/Recalibrate + Manual-mode toggle panel."""
+"""Start/Stop/Snapshot/Recalibrate + Manual-mode toggle panel.
+
+Layout / visual hierarchy:
+  - START / STOP   : primary actions, bold green / red.
+  - SNAPSHOT / RECAL: secondary utilities, shared neutral style so they read
+                      as a group and don't compete with the primaries.
+  - MANUAL MODE     : full-width toggle (neutral OFF, amber ON).
+"""
 
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import QVBoxLayout, QGridLayout, QLabel, QPushButton
+from PyQt6.QtWidgets import (
+    QVBoxLayout, QGridLayout, QLabel, QPushButton, QFrame,
+)
 
 from ui.theme import Theme
 from ui.widgets import GlowingCard, AnimatedButton
@@ -17,7 +26,6 @@ class ControlPanel(GlowingCard):
     stop_clicked = pyqtSignal()
     snapshot_clicked = pyqtSignal()
     recalibrate_clicked = pyqtSignal()
-    test_clicked = pyqtSignal()
     manual_mode_toggled = pyqtSignal(bool)  # True = manual ON
 
     def __init__(self, parent=None):
@@ -32,8 +40,9 @@ class ControlPanel(GlowingCard):
         header.setStyleSheet(f"color: {Theme.ACCENT_PRIMARY};")
         layout.addWidget(header)
 
-        grid = QGridLayout()
-        grid.setSpacing(12)
+        # ----- primary actions: START / STOP -----
+        primary = QGridLayout()
+        primary.setSpacing(12)
 
         self.start_btn = AnimatedButton("START", Theme.SUCCESS, Theme.SUCCESS_GLOW)
         self.start_btn.clicked.connect(self.start_clicked.emit)
@@ -42,22 +51,32 @@ class ControlPanel(GlowingCard):
         self.stop_btn.setEnabled(False)
         self.stop_btn.clicked.connect(self.stop_clicked.emit)
 
-        self.snapshot_btn = AnimatedButton("SNAPSHOT", Theme.INFO, Theme.INFO_GLOW)
+        primary.addWidget(self.start_btn, 0, 0)
+        primary.addWidget(self.stop_btn, 0, 1)
+        layout.addLayout(primary)
+
+        # ----- secondary utilities: SNAPSHOT / RECALIBRATE -----
+        secondary = QGridLayout()
+        secondary.setSpacing(12)
+
+        self.snapshot_btn = self._make_secondary_button("SNAPSHOT")
         self.snapshot_btn.clicked.connect(self.snapshot_clicked.emit)
 
-        self.recalibrate_btn = AnimatedButton("RECALIBRATE", Theme.WARNING, Theme.WARNING_GLOW)
+        self.recalibrate_btn = self._make_secondary_button("RECALIBRATE")
         self.recalibrate_btn.clicked.connect(self.recalibrate_clicked.emit)
 
-        self.test_btn = AnimatedButton("TEST MOTORS", Theme.INFO, Theme.INFO_GLOW)
-        self.test_btn.clicked.connect(self.test_clicked.emit)
+        secondary.addWidget(self.snapshot_btn, 0, 0)
+        secondary.addWidget(self.recalibrate_btn, 0, 1)
+        layout.addLayout(secondary)
 
-        grid.addWidget(self.start_btn, 0, 0)
-        grid.addWidget(self.stop_btn, 0, 1)
-        grid.addWidget(self.snapshot_btn, 1, 0)
-        grid.addWidget(self.recalibrate_btn, 1, 1)
-        grid.addWidget(self.test_btn, 2, 0, 1, 2)
-        layout.addLayout(grid)
+        # ----- divider -----
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.HLine)
+        divider.setStyleSheet(f"color: {Theme.BORDER}; background-color: {Theme.BORDER};")
+        divider.setFixedHeight(1)
+        layout.addWidget(divider)
 
+        # ----- manual-mode toggle -----
         self._manual_mode_on = False
         self.manual_btn = QPushButton("MANUAL MODE: OFF")
         self.manual_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
@@ -67,6 +86,41 @@ class ControlPanel(GlowingCard):
         self._apply_manual_btn_style(False)
         self.manual_btn.clicked.connect(self._on_manual_toggled)
         layout.addWidget(self.manual_btn)
+
+    # ------------------------------------------------------------------
+    # Button factories / styles
+    # ------------------------------------------------------------------
+
+    def _make_secondary_button(self, text: str) -> QPushButton:
+        """A neutral utility button — distinct from the coloured primaries,
+        consistent with its sibling, and readable in all states."""
+        btn = QPushButton(text)
+        btn.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+        btn.setMinimumHeight(44)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {Theme.BG_ELEVATED};
+                color: {Theme.TEXT_PRIMARY};
+                border: 1px solid {Theme.BORDER};
+                border-radius: 8px;
+                padding: 10px 20px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {Theme.BG_HOVER};
+                border-color: {Theme.ACCENT_PRIMARY};
+                color: {Theme.ACCENT_PRIMARY};
+            }}
+            QPushButton:pressed {{
+                background-color: {Theme.BG_SECONDARY};
+            }}
+            QPushButton:disabled {{
+                background-color: {Theme.BG_SECONDARY};
+                color: {Theme.TEXT_MUTED};
+            }}
+        """)
+        return btn
 
     def _on_manual_toggled(self):
         checked = self.manual_btn.isChecked()

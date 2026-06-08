@@ -123,7 +123,12 @@ class PitchDetectionPipeline(QObject):
             frame: BGR numpy array from camera
         """
         if frame is not None and frame.size > 0:
-            self._latest_frame = frame.copy()
+            # Keep a reference, not a copy. This slot fires on every camera
+            # frame (~30/s) but _run_detection only reads _latest_frame every
+            # few seconds. cv2.VideoCapture.read() allocates a fresh array per
+            # frame and no downstream slot mutates frames in place, so holding
+            # the reference is safe and avoids a full-frame copy per frame.
+            self._latest_frame = frame
 
     def trigger_manual_detection(self):
         """Manually trigger detection immediately (e.g., from SNAPSHOT button)"""

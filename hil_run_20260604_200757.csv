@@ -1,0 +1,3 @@
+run_id,step,timestamp,mode,source,target_pitch_mm,measured_pitch_mm,confidence,previous_feed_speed_mm_s,commanded_feed_speed_mm_s,speed_delta_mm_s,correction_gain,command_sent,timestamp_command_sent,mock_actual_feed_speed_mm_s,timestamp_motor_feedback_received,motor_response_time_ms,next_pitch_mm,pitch_change_mm,pitch_sensitivity_per_feed_speed,blocked_reason,resulting_mode
+7781904b,1,259595.8021595,HIL,HIL,0.25,0.225,HIGH,5.0,5.555555555555555,0.5555555555555554,1.0,True,259595.8021595,,,,0.2,-0.024999999999999994,-0.045000000000000005,,AUTO
+7781904b,2,259599.19898,HIL,HIL,0.25,0.2,HIGH,5.555555555555555,6.944444444444445,1.3888888888888893,1.0,True,259599.19898,,,,,,,,AUTO

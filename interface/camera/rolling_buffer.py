@@ -51,7 +51,7 @@ class _Segment:
 
 class RollingBuffer:
     """
-    A disk-backed, time- and size-bounded rolling video recorder.
+    A disk-backed, time and size-bounded rolling video recorder.
 
     Parameters
     ----------

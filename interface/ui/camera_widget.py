@@ -15,7 +15,7 @@ import math
 import numpy as np
 from typing import Optional
 import random
-import cv2
+import time
 
 from .overlay_geometry import pitch_overlay_lines
 
@@ -45,6 +45,13 @@ class EnhancedCameraView(QFrame):
         self._current_frame: Optional[np.ndarray] = None  # BGR format
         self._display_pixmap: Optional[QPixmap] = None
         self._display_rect = QRectF()  # Where to draw frame (letterboxed)
+        self._scaled_pixmap: Optional[QPixmap] = None  # pre-scaled to _display_rect
+
+        # Cap how often the widget repaints from the camera feed. This is a
+        # display-only throttle: pitch detection, recording, and motor polling
+        # receive frames through their own slots and are unaffected by it.
+        self._last_render_ts = 0.0
+        self._min_render_interval = 1.0 / 20.0  # ~20 fps display refresh
 
         # Construction lines (crosshair) - user adjustable
         self.h_offset = 0  # Horizontal line offset
@@ -123,28 +130,38 @@ class EnhancedCameraView(QFrame):
         if frame is None or frame.size == 0:
             return
 
-        # Convert BGR to RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        # Create QImage
-        h, w, ch = rgb_frame.shape
-        bytes_per_line = ch * w
-        q_image = QImage(
-            rgb_frame.data,
-            w, h,
-            bytes_per_line,
-            QImage.Format.Format_RGB888
-        )
-
-        # Convert to pixmap
-        self._display_pixmap = QPixmap.fromImage(q_image.copy())
-
-        # Disable demo mode
+        # Display-only throttle. The first real frame always switches out of
+        # demo mode and renders immediately; after that we drop frames that
+        # arrive faster than the display refresh interval so the main thread
+        # isn't repainting at the full camera rate.
+        now = time.monotonic()
         if self._demo_mode:
             self._demo_mode = False
             self._demo_timer.stop()
+        elif (now - self._last_render_ts) < self._min_render_interval:
+            return
+        self._last_render_ts = now
 
-        # Calculate display rect (letterbox/pillarbox)
+        # Wrap the camera's native BGR buffer directly with Format_BGR888 —
+        # no BGR->RGB conversion needed. VideoCapture frames are C-contiguous;
+        # guard in case an upstream slice ever isn't.
+        if not frame.flags["C_CONTIGUOUS"]:
+            frame = np.ascontiguousarray(frame)
+        h, w, ch = frame.shape
+        q_image = QImage(
+            frame.data,
+            w, h,
+            ch * w,
+            QImage.Format.Format_BGR888,
+        )
+
+        # fromImage() deep-copies the pixels into the pixmap, so the QImage
+        # (and the numpy buffer it wraps) can be released right after — the
+        # extra .copy() that used to be here just duplicated a full frame.
+        self._display_pixmap = QPixmap.fromImage(q_image)
+
+        # Recompute the letterbox rect and cache the pre-scaled pixmap so
+        # paintEvent only has to blit (no per-paint rescale).
         self._calculate_display_rect()
 
         # Trigger repaint
@@ -181,6 +198,20 @@ class EnhancedCameraView(QFrame):
             y = 0
 
         self._display_rect = QRectF(x, y, display_width, display_height)
+
+        # Cache a pixmap pre-scaled to the display rect so paintEvent is a
+        # plain blit. The rect already preserves aspect ratio, so scale to its
+        # exact size (IgnoreAspectRatio). FastTransformation matches the prior
+        # drawPixmap behaviour and keeps the scale cheap.
+        target = self._display_rect.toRect().size()
+        if target.width() > 0 and target.height() > 0:
+            self._scaled_pixmap = self._display_pixmap.scaled(
+                target,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.FastTransformation,
+            )
+        else:
+            self._scaled_pixmap = None
 
     def _update_demo_animation(self):
         """Update demo mode animation (when no camera)"""
@@ -253,9 +284,9 @@ class EnhancedCameraView(QFrame):
         painter.end()
 
     def _paint_camera_frame(self, painter: QPainter):
-        """Paint actual camera frame"""
-        if self._display_pixmap and not self._display_pixmap.isNull():
-            painter.drawPixmap(self._display_rect.toRect(), self._display_pixmap)
+        """Paint actual camera frame (pre-scaled in _calculate_display_rect)."""
+        if self._scaled_pixmap is not None and not self._scaled_pixmap.isNull():
+            painter.drawPixmap(self._display_rect.topLeft().toPoint(), self._scaled_pixmap)
 
     def _paint_demo_mode(self, painter: QPainter, rect):
         """Paint demo mode animation (shown when no camera available)"""
