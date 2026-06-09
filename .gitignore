@@ -1,1 +1,23 @@
+# Claude
 .claude/
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS cruft
+.DS_Store
+
+# Logs
+*.log
+
+# HIL run captures (generated at runtime)
+hil_run_*.csv

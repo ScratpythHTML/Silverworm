@@ -1,227 +1,155 @@
 # Silverworm
+Hardware and software design for the Silverworm spiral yarn wrapping machine.
 
-Yarn-pitch estimation and wrapping control system. PyQt6 GUI on a Raspberry
-Pi that talks to a Physical UI panel (ESP32, I2C) and a motor controller
-(Arduino, SPI), with a USB-microscope vision pipeline for live pitch
-measurement.
+## Group A
+This is the wrapping team. We have designed a rotating arm that enscapulates a core yarn with a conductive outer fibre. The code in this repository is used to set the speed of the motor.
 
-The full design brief lives in [CLAUDE.md](CLAUDE.md). Recent changes are
-in [CHANGELOG.md](CHANGELOG.md).
+### Hardware
+- Arduino Nano Every
+- VNH5019 Motor Driver
+- Honeywell Digital Hall Effect Sensor
+- CHANCS 30W Permanent Magnet DC Motor 
 
-## Architecture
+### Software
+The arduino code takes an inputted reference speed and accelerates the motor to this. It uses a Hall effect sensor and magnets on the arm to calculate the current speed. A PID controller is used for this system to eliminate error and ensure the motor willl get to the correct speed with in a set time. 
 
-```
-┌─────────────┐    I2C ASCII     ┌──────────────┐    SPI bytes    ┌────────────┐
-│ ESP32 (PUI) │ ───────────────► │ Raspberry Pi │ ──────────────► │  Arduino   │
-│ dials/switch│  D1±N, AS0/1, TP │  PyQt6 GUI   │  prefix+payload │ motor ctrl │
-│   /lights   │                  │ vision (cv2) │ ◄────────────── │            │
-└─────────────┘                  └──────────────┘   status/error  └────────────┘
-```
+## Group B
+This is the feeding. We have a feeding system that is passively tensioned which goes into team A's system; after the warpped yarn comes out, we collect it on a rotating collecting spool, which is on a linear rail to ensure orthodirectionality. 
 
-**Physical UI (PUI) is always source of truth.** GUI controls are
-suggestions — the next dial twist or mode-switch flip from the panel
-overwrites whatever the GUI set.
+### Hardware
+- STM32
+- DM423T Stepper Driver
+- Linear Guide Rail with Nema 23 Stepper Motor
+- oDrive S1 Motor Driver
+- 24V 3000RPM 0.16Nm 50W 3.30A 42x42x62mm Brushless DC Motor ( with included hall effect sensor ) 
+- 2 x Incremental Rotary Encoder IHC3808-001G-2000BZ1 ABZ 3-Channel 8mm Hollow Shaft
 
-## Project structure
+### Software
+The code would take a inputted speed of the linear core yarn and then calculate the corresponding speeds that the linear rail and the BLDC motor would need to run at to ensure linear speed is accurate. The 2 encoders would give us both the radial velocity of the wrapper and the core yarn, allowing us to create a closed-loop control.
 
-```
-Silverworm-app/
-├── CLAUDE.md                       # Full design brief
-├── CHANGELOG.md                    # Dated implementation history
-├── README.md                       # This file
-├── image-processing/
-│   ├── pitch_estimate.py           # CV pipeline (OpenCV/SciPy)
-│   └── sample-images/              # Test microscope frames
-└── interface/
-    ├── app.py                      # GUI entry point
-    ├── app_state.py                # Central state machine + motor routing
-    ├── config.py                   # AppConfig + JSON load/save
-    ├── controller.py               # (legacy SetpointController, being phased out)
-    ├── comms/
-    │   ├── pui.py                  # PUI I2C protocol (parser + transport + listener)
-    │   ├── motor_spi.py            # Motor SPI protocol (packet codec + transport)
-    │   └── transport.py            # (legacy UART, kept for transitional code)
-    ├── camera/                     # AmScope HHD 8300-P detection + capture
-    ├── processing/                 # PitchDetectionPipeline (wraps pitch_estimate.py)
-    ├── ui/
-    │   ├── startup_dialog.py       # 3-field config dialog shown on launch
-    │   ├── camera_widget.py        # Live camera view
-    │   └── manual_mode_dialog.py   # Manual-mode acknowledgement banner
-    ├── tests/                      # pytest suite (mocked hardware)
-    └── venv/                       # Python 3.14 virtualenv
-```
+## Group C
+This is the integration & control software — a PyQt6 app on a Raspberry Pi that reads the physical control panel, drives both motors, and measures yarn pitch live from a microscope camera.
 
-## Setup
+### Hardware
+- Raspberry Pi (Compute Module 5 + IO board)
+- ESP32 physical UI panel — dials + mode/power switches (I2C)
+- Wrap & feed motor controllers (SPI)
+- AmScope HHD 8300-P USB microscope
 
-### Prerequisites
-- Python 3.10+ (Python 3.14 verified on macOS)
-- Raspberry Pi OS (Bookworm or later) for hardware deployment
+### Software
+The app is the system's central controller. It holds the machine state (mode, power, wrap + feed speeds), and the **physical panel is always the source of truth** — GUI controls are overwritten by the next dial/switch input. In AUTO it measures wrap pitch from the live camera and adjusts feed speed to hit the target; in MANUAL it overlays the target pitch/angle on the camera view for hand setup.
 
-### Install (dev — macOS or Linux)
+### Quick start
 
+**On the wrapping machine (Raspberry Pi):**
 ```bash
-cd interface
-python3 -m venv venv
-source venv/bin/activate
-pip install -U pip
-pip install PyQt6 opencv-python numpy scipy matplotlib pytest
+python3 -m pip install -r interface/requirements-rpi.txt --break-system-packages
+cd interface && python3 app.py
 ```
 
-### Install (Pi — adds hardware drivers)
-
+**On another computer (development, no hardware):**
 ```bash
-pip install smbus2 spidev      # only needed on the Pi
+python3 -m pip install -r interface/requirements.txt
+cd interface && python3 app.py
 ```
 
-The app loads on any OS; `smbus2`/`spidev` are lazy-imported only when
-the real I2C/SPI transports open.
+On first launch you'll set target pitch, wire thickness, and tube diameter (tick "Remember settings" to skip it next time). With no panel attached, use the **Debug** menu to simulate dial/switch input.
 
-## Running the app
-
-```bash
-cd interface
-source venv/bin/activate
-python app.py
+### Code files
+```
+interface/
+  app.py             Launcher — startup dialog → main window
+  ui/main_window.py  Wires UI + state + hardware together
+  app_state.py       Central state (mode/power/speeds), routes motor commands
+  config.py          Settings, JSON persistence, wrap-angle math
+  pitch_control.py   Closed-loop pitch → feed-speed control
+  telemetry.py       Per-command timing/telemetry for the test report
+  storage.py         Atomic saves (snapshots, recordings, logs)
+  hardware.py        Picks real vs mock I2C/SPI transports per platform
+  comms/
+    pui.py           ESP32 panel protocol (I2C parser + listener)
+    motor_spi.py     Arduino motor protocol (SPI packet codec)
+  camera/            AmScope detection, capture, rolling frame buffer
+  processing/
+    pipeline.py      Runs pitch estimation on live camera frames
+  ui/                GUI widgets (camera view, controls, graphs, dialogs)
+  hil_test.py        Hardware-in-the-loop harness (no camera needed)
+  diagnose.py        Environment / setup checker
+image-processing/
+  pitch_estimate.py  CV pitch measurement (OpenCV + SciPy)
 ```
 
-On launch you'll see the **Startup Configuration** dialog (Target Pitch,
-Wire Thickness, Tube Diameter) — fill it in once and tick "Remember
-settings" to skip it next time. Config persists to:
-- macOS:   `~/Library/Preferences/Silverworm/config.json`
-- Linux:   `~/.config/Silverworm/config.json`
-- Windows: `%APPDATA%/Silverworm/config.json`
+### Continuing development
+Start at `app.py` → `ui/main_window.py` → `app_state.py` (the central state machine). The reference sections below cover the protocols, formulas, and extension recipes you need to add features or bring up new hardware.
 
-Use the **Debug** menu in the menu bar to inject simulated PUI messages
-(`D1+1`, `D1-2`, `AS0`, `AS1`, `TP`, etc.) while developing on a machine
-without a connected panel. Every transition mirrors to the alert log.
+## How it works (reference)
 
-## Communication protocols
+### Architecture
+```
+ESP32 (panel) ──I2C──► Raspberry Pi (this app) ──SPI──► Arduino (motors)
+ dials/switches          PyQt6 GUI + vision            wrap + feed
+                         AppState = source of truth
+```
+The **physical panel always wins**: any dial/switch event overwrites what the GUI set. The GUI is a display/backup.
 
-### PUI → RPi (I2C, ASCII messages)
+### Communication protocols
+**I2C — panel → Pi (ASCII):**
 
 | Message | Meaning |
 |---|---|
-| `D1±N` | Dial 1 (wrap speed) changed by N detents, N ∈ {1,2,3} = small/medium/large |
-| `D2±N` | Dial 2 (feed speed) changed by N detents |
-| `AS0`  | Mode switch → MANUAL |
-| `AS1`  | Mode switch → AUTO |
-| `TP`   | Toggle machine power state |
+| `D1±N` | Dial 1 (wrap) ± N detents, N∈{1,2,3} = small/med/large |
+| `D2±N` | Dial 2 (feed) ± N detents |
+| `AS0` / `AS1` | Mode → MANUAL / AUTO |
+| `TP` | Toggle machine power |
 
-Dial events apply *increments* (configured in `DetentConfig`), not
-absolute values. `D1+2` adds the medium dial-1 increment to the current
-wrap speed.
+Dials send *increments*, not absolute values; the detent→units lookup is in `DetentConfig` (`config.py`).
 
-### RPi → Arduino (SPI, byte packets)
+**SPI — Pi → Arduino (byte packets):**
 
-| Prefix | Command       | Payload                                |
-|--------|---------------|----------------------------------------|
-| `0x01` | Start         | `speedL`, `speedH` (uint16, little-endian) |
-| `0x02` | Stop          | `stop_type` (1=ramp, 2=emergency, 3=power-off) |
-| `0x03` | Set speed     | `speedL`, `speedH`                     |
-| `0x04` | Test movement | `movement_type` (1 byte)               |
-| `0x05` | Request Speed | `empty`, `empty`, `empty`              |
+| Prefix | Command | Payload |
+|--------|---------|---------|
+| `0x01` | Start | speedL, speedH (uint16 LE) |
+| `0x02` | Stop | stop_type (1=ramp, 2=emergency, 3=power-off) |
+| `0x03` | Set speed | speedL, speedH |
+| `0x04` | Test movement | movement_type |
+| `0x05` | Request speed | — |
 
-### Arduino → RPi
+**SPI — Arduino → Pi:** `0x01` current speed · `0x02` error_code · `0x03` sequence status.
 
-| Prefix | Response         | Payload                  |
-|--------|------------------|--------------------------|
-| `0x01` | Current speed    | `speedL`, `speedH`       |
-| `0x02` | Error            | `error_code` (1 byte)    |
-| `0x03` | Sequence status  | `status` (1 byte)        |
+### Core formulas
+```python
+theta = arctan(pitch / (pi * (tube_diameter + 2 * wire_thickness)))  # wrap angle
+pitches_um = np.diff(peak_positions_px) * um_per_px                   # pitch from peaks
+cv = std_pitch / mean_pitch                                          # confidence:
+#   HIGH if wraps>=10 and cv<0.20 ; MEDIUM if wraps>=5 and cv<0.35 ; else LOW
+```
 
-Code: [`interface/comms/pui.py`](interface/comms/pui.py),
-[`interface/comms/motor_spi.py`](interface/comms/motor_spi.py).
+### Settings
+Persisted to the OS config dir, loaded on startup (target pitch, wire thickness, tube diameter, detent→speed mappings, remember-settings): macOS `~/Library/Preferences/Silverworm/config.json`, Linux `~/.config/Silverworm/config.json`. The manual-mode GUI toggle is hidden by default (enable in Settings with the warning ack) to avoid PUI/GUI desync.
 
-## State model
+## Extending the app
+- **New PUI message:** add a case in `parse_pui_message()` + a dataclass (`comms/pui.py`) → signal on `PUIListener` → `apply_*` handler on `AppState` → wire in `MainWindow._connect_app_state_signals()` → test in `tests/test_pui_protocol.py` + `tests/test_app_state.py`.
+- **New motor command:** add to `CommandPrefix` + `build_<cmd>()` with bounds checks (`comms/motor_spi.py`) → method on `MotorController` → test in `tests/test_motor_spi.py`.
+- **Tune pitch detection:** edit `image-processing/pitch_estimate.py` (`min_dist_px`, `sigma`, `prom_factor`).
 
-[`AppState`](interface/app_state.py) is the single source of truth for
-`mode`, `machine_on`, `wrap_speed_rpm`, and `feed_speed_mms`. Events from
-both the GUI and the PUI listener call the same internal setters — the
-"precedence" rule is simply that PUI events happen whenever the operator
-touches the panel and overwrite whatever the GUI last set.
-
-State transitions emit Qt signals (`mode_changed`, `wrap_speed_changed`,
-etc.) which the GUI subscribes to.
-
-## Testing: Unit tests
-
+## Testing
 ```bash
 cd interface
-pytest -q tests/name_of_file.py
+pytest -q tests/test_pui_protocol.py tests/test_motor_spi.py tests/test_app_state.py
 ```
+The protocol layer is fully tested without hardware via `MockPUITransport` / `MockSPITransport`. Camera/UI tests need Linux + `pytest-qt`.
 
-The protocol layer is fully tested without hardware via `MockPUITransport`
-and `MockSPITransport`. Coverage includes:
+## Repository map
+Several subfolders have their own README with hardware-specific detail (pin maps, wiring, board files). Start here, then drill in:
 
-- PUI ASCII parser (every message form + edge cases)
-- SPI packet encoding (`speedL`/`speedH` byte order, stop types, bounds)
-- Arduino response parsing
-- AppState behaviour: dial increments, PUI/GUI mode precedence, TP →
-  start/stop motor packets, speed propagation only while running
-
-Pre-existing camera/UI tests require Linux (`v4l-utils`) and `pytest-qt`;
-they're not part of the protocol test target.
-
-## Hardware bring-up on the Pi
-
-1. Install `smbus2` and `spidev` (see "Install" above).
-2. Enable I2C and SPI in `raspi-config` → Interfacing Options.
-3. In [`interface/app.py`](interface/app.py) `MainWindow.__init__`, swap
-   the mock transports for real ones:
-   ```python
-   from comms import I2CPUITransport, SPIMotorTransport
-   self._pui_transport = I2CPUITransport(bus_number=1, address=0x42)
-   self._wrap_spi = SPIMotorTransport(bus=0, device=0)
-   self._feed_spi = SPIMotorTransport(bus=0, device=1)
-   ```
-4. Confirm I2C address with the PUI firmware author; the placeholder is
-   `0x42`. See TODOs in [`comms/pui.py`](interface/comms/pui.py) and
-   [`comms/motor_spi.py`](interface/comms/motor_spi.py).
-5. Use a logic analyser on the I2C / SPI lines to verify packet
-   structure matches the tables above.
-
-## Camera setup (Linux, AmScope HHD 8300-P)
-
-```bash
-sudo apt-get install v4l-utils
-sudo usermod -a -G video $USER     # log out + back in
-ls -l /dev/video*
-v4l2-ctl --list-devices            # should list "AmScope HHD 8300-P"
-```
-
-The app auto-detects the AmScope camera; if multiple cameras are present
-it prioritises AmScope. See [`interface/camera/detector.py`](interface/camera/detector.py).
-
-### Camera troubleshooting
-
-| Symptom | Check |
-|---|---|
-| Camera not detected | `lsusb`, `dmesg \| grep video`, try a data-capable USB cable / different port |
-| Permission denied | `groups` (need `video`), `ls -l /dev/video*`, reboot after group add |
-| Low frame rate | Switch to `CameraConfig.amscope_8300p_lowres()`, set `use_mjpeg=False`, use USB 3.0 |
-| Wrong camera selected | Adjust priority in `camera/detector.py` |
-
-## Theme / customisation
-
-Colours live in the `Theme` class at the top of
-[`interface/app.py`](interface/app.py) (also duplicated in
-[`interface/ui/startup_dialog.py`](interface/ui/startup_dialog.py) as
-`_Theme` to keep the dialog free of circular imports).
-
-```python
-class Theme:
-    ACCENT_PRIMARY = "#00d4aa"   # teal
-    BG_PRIMARY     = "#0a0e14"
-    SUCCESS        = "#00d68f"
-    ERROR          = "#ff6b6b"
-    # ...
-```
-
-## Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| `QRadialGradient` type error on launch | Already fixed (line 254 uses `QPointF`). Pull latest. |
-| App opens then crashes on camera probe | OpenCV will spam "out of bound" warnings for non-existent `/dev/video*` indices on macOS — these are harmless; the window still opens. |
-| Tests fail with `pytest-qt`-related errors | The protocol tests (`test_pui_protocol/motor_spi/app_state`) don't need `pytest-qt`. Run only those. |
-| `pip install PyQt6` fails on Python 3.14 | Upgrade pip first: `pip install -U pip`. |
+| Folder | Contents |
+|--------|----------|
+| [interface/](interface/) | Group C control software (see above) |
+| [image-processing/](image-processing/) | Pitch-measurement CV pipeline |
+| [GroupA/](GroupA/) | Group A wrapper-motor firmware (Arduino Nano Every) |
+| [GroupB/](GroupB/README.md) | Group B collecting firmware + Uno pin map |
+| [IO Panel/](IO%20Panel/Silverworm_Control_Panel/README.md) | ESP32 panel pinout + I2C protocol |
+| → [Web test tool](IO%20Panel/Silverworm_Control_Panel/IO%20Panel%20Software/Web_Test_Version/README.md) | Browser serial test UI for the panel |
+| [Motherboard/Hardware/](Motherboard/Hardware/Silverworm%20-%20CM5%20Motherboard/) | CM5 carrier-board KiCAD files |
+| [Motherboard/Software/](Motherboard/Software/README.md) | Enabling SPI/I2C on the CM5 |
+| [Subsystem Interfacing/](Subsystem%20Interfacing/README.md) | Cross-board SPI wiring overview |

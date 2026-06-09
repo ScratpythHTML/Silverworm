@@ -1,7 +1,10 @@
-# Raspberry Pi hardware transports.
-#
-# These packages need Linux kernel interfaces. On macOS, spidev cannot build
-# because linux/spi/spidev.h is not available.
+# Raspberry Pi install — everything needed to run on the device.
+# One command installs the GUI/CV deps plus the hardware transports:
+#   pip install -r interface/requirements-rpi.txt --break-system-packages
+-r requirements.txt
 
+# Hardware transports — need Linux kernel interfaces. On macOS, spidev cannot
+# build because linux/spi/spidev.h is not available (hence the dev machine
+# uses requirements.txt instead).
 smbus2>=0.6.1; sys_platform == "linux"
 spidev>=3.8; sys_platform == "linux"
