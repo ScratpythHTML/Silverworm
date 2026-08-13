@@ -10487,15 +10487,15 @@
 			(uuid "f7940084-654c-4181-94f6-80b31b718767")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_Molex.3dshapes/Molex_Micro-Fit_3.0_43045-0221_2x01-1MP_P3.00mm_Horizontal.step"
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/microfit 2 pin/0430450221.stp"
 			(offset
-				(xyz 0 0 0)
+				(xyz 0 4 4)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 0)
+				(xyz -90 -0 180)
 			)
 		)
 	)
@@ -10785,7 +10785,7 @@
 		(property "Reference" "J14"
 			(at 3 -10.12 90)
 			(layer "F.SilkS")
-			(uuid "35498889-a643-4b65-a49e-c705b6af6ef5")
+			(uuid "499ecda2-8d93-4314-a300-5134c7f98ed2")
 			(effects
 				(font
 					(size 1 1)
@@ -10796,7 +10796,7 @@
 		(property "Value" "Microfit 6-pin"
 			(at 3 5.7 90)
 			(layer "F.Fab")
-			(uuid "3fb0ebc6-8023-4141-9341-9a9d5defe469")
+			(uuid "efb1dae5-07a5-4c6d-aeb7-f5155815580c")
 			(effects
 				(font
 					(size 1 1)
@@ -10808,7 +10808,7 @@
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "eecdeb2f-ca0d-49f0-81d0-d59075482c2d")
+			(uuid "c29aba81-36b9-4f76-a2e3-fadb272a3b3d")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10820,7 +10820,7 @@
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "a4b3e098-55f2-411c-8f28-1c98c4f37a39")
+			(uuid "ff7107dc-f0e8-4e82-b83d-98a6fe965fec")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11270,15 +11270,15 @@
 			(uuid "1c04e34f-137f-43ab-9b22-78f6fcfe8d2f")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_Molex.3dshapes/Molex_Micro-Fit_3.0_43045-0621_2x03-1MP_P3.00mm_Horizontal.step"
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/microfit 6pin/0430450621.stp"
 			(offset
-				(xyz 0 0 0)
+				(xyz 3 4 3.5)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 0)
+				(xyz -90 -0 180)
 			)
 		)
 	)
@@ -11957,15 +11957,15 @@
 			(uuid "e21287a4-116c-4bf0-978e-91010084cb43")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_Molex.3dshapes/Molex_Micro-Fit_3.0_43045-0221_2x01-1MP_P3.00mm_Horizontal.step"
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/microfit 2 pin/0430450221.stp"
 			(offset
-				(xyz 0 0 0)
+				(xyz 0 4 4)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 0)
+				(xyz -90 -0 180)
 			)
 		)
 	)
@@ -12454,15 +12454,15 @@
 			(uuid "29f2d2db-055c-4e82-b696-8ecd768037e7")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_Molex.3dshapes/Molex_Mini-Fit_Jr_5569-08A2_2x04_P4.20mm_Horizontal.step"
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/minifit 8pin/0039301080.stp"
 			(offset
-				(xyz 0 0 0)
+				(xyz 6.5 14 0)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 0)
+				(xyz -90 -0 -180)
 			)
 		)
 	)
@@ -15402,15 +15402,15 @@
 			(uuid "548c89e1-d3bf-4c1f-bdd1-e9b87a895402")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_Molex.3dshapes/Molex_Micro-Fit_3.0_43045-0221_2x01-1MP_P3.00mm_Horizontal.step"
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/microfit 2 pin/0430450221.stp"
 			(offset
-				(xyz 0 0 0)
+				(xyz 0 4 4)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 0)
+				(xyz 90 -180 -0)
 			)
 		)
 	)
@@ -16251,15 +16251,15 @@
 			(uuid "79bd87bd-47e4-4e2e-9426-f543b17ad10f")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_Molex.3dshapes/Molex_Mega-Fit_76825-0002_2x01_P5.70mm_Horizontal.step"
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/megafit 2x1/1720640002.stp"
 			(offset
-				(xyz 0 0 0)
+				(xyz 11.5 14 4)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 0)
+				(xyz -90 -0 -0)
 			)
 		)
 	)
@@ -18423,6 +18423,17 @@
 			(uuid "ca7aae43-9762-441d-841c-8d4b9136464b")
 		)
 		(embedded_fonts no)
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/usb-a-single/482040001.stp"
+			(offset
+				(xyz 0 -18.5 7)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -0)
+			)
+		)
 	)
 	(footprint "Capacitor_SMD:C_0603_1608Metric"
 		(layer "F.Cu")
@@ -23651,6 +23662,17 @@
 			(uuid "a3cc9664-0dc9-49df-bb91-a0dc7d42c114")
 		)
 		(embedded_fonts no)
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/megafit 1x2/2002411212.stp"
+			(offset
+				(xyz -3 -16 0.5)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -0 -0 -0)
+			)
+		)
 	)
 	(footprint "TPS54560DDAR:SOIC127P600X170-9N"
 		(layer "F.Cu")
@@ -25842,15 +25864,15 @@
 			(uuid "1eed4dca-d38d-4258-b95d-2de849389342")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_Molex.3dshapes/Molex_Micro-Fit_3.0_43650-0315_1x03_P3.00mm_Vertical.step"
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/microfit 3pin/0436500315.stp"
 			(offset
-				(xyz 0 0 0)
+				(xyz 3 2 10)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 0)
+				(xyz 90 -0 180)
 			)
 		)
 	)
@@ -26616,15 +26638,15 @@
 			(uuid "86dbeca3-9547-4575-b04c-e7839d29db63")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_Molex.3dshapes/Molex_Mini-Fit_Jr_5569-08A2_2x04_P4.20mm_Horizontal.step"
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/minifit 8pin/0039301080.stp"
 			(offset
-				(xyz 0 0 0)
+				(xyz 6.5 14 0)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 0)
+				(xyz -90 -0 -180)
 			)
 		)
 	)
@@ -30195,15 +30217,15 @@
 			(uuid "09313989-5aed-43e9-8350-254d008a7c8b")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Connector_Molex.3dshapes/Molex_Micro-Fit_3.0_43045-0221_2x01-1MP_P3.00mm_Horizontal.step"
+		(model "C:/Users/zakle/Imperial College London/DMT2526_04_ThreadWrapping - ME - SubAssembly C/03 Design/Electronics/Motherboard Components/microfit 2 pin/0430450221.stp"
 			(offset
-				(xyz 0 0 0)
+				(xyz 0 4 4)
 			)
 			(scale
 				(xyz 1 1 1)
 			)
 			(rotate
-				(xyz 0 0 0)
+				(xyz -90 -0 180)
 			)
 		)
 	)
