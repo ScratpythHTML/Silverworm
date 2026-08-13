@@ -6,7 +6,9 @@ user acknowledgement.
 """
 
 import pytest
-from PyQt6.QtCore import QTimer
+from pathlib import Path
+from types import SimpleNamespace
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from processing.pipeline import PitchDetectionPipeline
 from ui.manual_mode_dialog import ManualModeBanner, ManualModeDialog
 import numpy as np
@@ -97,6 +99,219 @@ def test_manual_mode_dialog_modal(qapp):
     dialog = ManualModeDialog("LOW")
 
     assert dialog.isModal() is True
+
+
+def test_pipeline_clears_latest_frame_on_stop(qapp):
+    """stop() must release the retained frame so it isn't pinned in memory."""
+    pipeline = PitchDetectionPipeline(interval_ms=1000)
+    pipeline.update_frame(np.zeros((480, 640, 3), dtype=np.uint8))
+    assert pipeline._latest_frame is not None
+
+    pipeline.start()
+    assert pipeline.is_active()
+
+    pipeline.stop()
+    assert not pipeline.is_active()
+    assert pipeline._latest_frame is None
+
+
+# ---------------------------------------------------------------------------
+# MainWindow pitch-detection lifecycle (manual mode stops detection)
+# ---------------------------------------------------------------------------
+
+class _FakeWorker(QObject):
+    """Stand-in camera worker exposing only the frame_ready signal."""
+    frame_ready = pyqtSignal(np.ndarray)
+
+
+def _make_window_stub(*, running: bool, mode):
+    """Build a bare MainWindow with just the attributes the pitch-detection
+    helpers touch — avoids constructing the full window (camera/hardware)."""
+    from ui.main_window import MainWindow
+
+    mw = MainWindow.__new__(MainWindow)
+    mw._is_running = running
+    mw.app_state = SimpleNamespace(mode=mode)
+    mw.camera_worker = _FakeWorker()
+    mw._pitch_source = None
+    mw._camera_correction_enabled = True  # exercise the start path
+    mw.pitch_pipeline = PitchDetectionPipeline(interval_ms=1000)
+    mw.alert_log = SimpleNamespace(log=lambda *a, **k: None)
+    return mw
+
+
+def test_mainwindow_starts_pitch_when_running_and_auto(qapp):
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.AUTO)
+
+    mw._start_pitch_detection_if_allowed()
+
+    assert mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is mw.camera_worker
+
+
+def test_mainwindow_camera_correction_disabled_does_not_start_pitch(qapp):
+    """With live camera correction OFF, detection must not start (HIL-only)."""
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.AUTO)
+    mw._camera_correction_enabled = False
+
+    mw._start_pitch_detection_if_allowed()
+
+    assert not mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is None
+
+
+def test_mainwindow_does_not_start_pitch_in_manual(qapp):
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.MANUAL)
+
+    mw._start_pitch_detection_if_allowed()
+
+    assert not mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is None
+
+
+def test_mainwindow_does_not_start_pitch_when_stopped(qapp):
+    from app_state import Mode
+    mw = _make_window_stub(running=False, mode=Mode.AUTO)
+
+    mw._start_pitch_detection_if_allowed()
+
+    assert not mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is None
+
+
+def test_mainwindow_manual_mode_stops_pitch_detection(qapp):
+    """Entering manual mode while running must stop detection, drop the
+    retained frame, and disconnect the camera feed."""
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.AUTO)
+
+    mw._start_pitch_detection_if_allowed()
+    mw.pitch_pipeline.update_frame(np.zeros((480, 640, 3), dtype=np.uint8))
+    assert mw.pitch_pipeline.is_active()
+
+    mw._stop_pitch_detection()
+
+    assert not mw.pitch_pipeline.is_active()
+    assert mw._pitch_source is None
+    assert mw.pitch_pipeline._latest_frame is None
+
+
+def test_mainwindow_no_duplicate_pitch_connection(qapp):
+    """Repeated start calls must not stack camera→pipeline connections."""
+    from app_state import Mode
+    mw = _make_window_stub(running=True, mode=Mode.AUTO)
+
+    # Spy in place of update_frame *before* the connection is made, so the
+    # signal binds to the spy. One emit must deliver exactly once.
+    calls = []
+    mw.pitch_pipeline.update_frame = lambda frame: calls.append(frame)
+
+    mw._start_pitch_detection_if_allowed()
+    mw._start_pitch_detection_if_allowed()
+    mw._start_pitch_detection_if_allowed()
+
+    mw.camera_worker.frame_ready.emit(np.zeros((4, 4, 3), dtype=np.uint8))
+
+    assert len(calls) == 1
+    assert mw._pitch_source is mw.camera_worker
+
+
+# ---------------------------------------------------------------------------
+# MainWindow recording persistence/manual save behaviour
+# ---------------------------------------------------------------------------
+
+class _AlertLog:
+    def __init__(self):
+        self.entries = []
+
+    def log(self, message, level="info"):
+        self.entries.append((message, level))
+
+
+class _FakeRollingBuffer:
+    frame_count = 12
+    duration_seconds = 4.5
+
+    def __init__(self):
+        self.saved_paths = []
+        self.save_return = True
+
+    def save(self, path):
+        self.saved_paths.append(Path(path))
+        return self.save_return
+
+
+class _FakeStorage:
+    def __init__(self, recordings_dir: Path):
+        self.recordings_dir = recordings_dir
+
+    def timestamped_path(self, directory: Path, prefix: str, ext: str) -> Path:
+        return Path(directory) / f"{prefix}_test.{ext}"
+
+
+def _make_recording_window_stub(tmp_path):
+    from ui.main_window import MainWindow
+
+    mw = MainWindow.__new__(MainWindow)
+    mw.alert_log = _AlertLog()
+    mw.storage = _FakeStorage(tmp_path)
+    mw.rolling_buffer = _FakeRollingBuffer()
+    mw._recording_save_dir = tmp_path
+    return mw
+
+
+def test_save_recording_uses_save_dialog(qapp, tmp_path, monkeypatch):
+    from ui.main_window import MainWindow
+
+    mw = _make_recording_window_stub(tmp_path)
+    chosen = tmp_path / "manual_recording"
+    monkeypatch.setattr(
+        "ui.main_window.QFileDialog.getSaveFileName",
+        lambda *args, **kwargs: (str(chosen), ""),
+    )
+
+    MainWindow._on_save_recording(mw)
+
+    assert mw.rolling_buffer.saved_paths == [chosen.with_suffix(".mp4")]
+    assert mw._recording_save_dir == tmp_path
+    assert any("Recording saved" in msg for msg, _ in mw.alert_log.entries)
+
+
+def test_save_recording_cancel_does_not_save(qapp, tmp_path, monkeypatch):
+    from ui.main_window import MainWindow
+
+    mw = _make_recording_window_stub(tmp_path)
+    monkeypatch.setattr(
+        "ui.main_window.QFileDialog.getSaveFileName",
+        lambda *args, **kwargs: ("", ""),
+    )
+
+    MainWindow._on_save_recording(mw)
+
+    assert mw.rolling_buffer.saved_paths == []
+
+
+def test_spi_error_response_stops_machine_then_persists_recording(qapp):
+    from ui.main_window import MainWindow
+
+    mw = MainWindow.__new__(MainWindow)
+    mw.alert_log = _AlertLog()
+    mw._is_running = True
+    mw._motor_fault_shutdown_pending = False
+    events = []
+    mw._persist_recording = lambda reason: events.append(("persist", reason))
+    mw.app_state = SimpleNamespace(
+        machine_on=True,
+        gui_set_machine_on=lambda on: events.append(("stop", on)),
+    )
+
+    MainWindow._handle_motor_response_error(mw, "wrap", 0x42)
+
+    assert events == [("stop", False), ("persist", "wrap_motor_error")]
+    assert any("Wrap motor error code 66" in msg for msg, _ in mw.alert_log.entries)
 
 
 def test_consecutive_low_threshold(qapp):

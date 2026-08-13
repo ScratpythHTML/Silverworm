@@ -1,3 +1,6 @@
+#include <ODriveUART.h>
+#include <ODriveCAN.h>
+
 #include "BldcMotor.h"
 
 #if !MOTORS_ENABLED
@@ -24,7 +27,7 @@ static int turnsPerSecToRpm(float turnsPerSec) {
 }
 
 BldcMotor::BldcMotor()
-    : odriveSerial_(ODRIVE_UART_RX_PIN, ODRIVE_UART_TX_PIN), odrive_(odriveSerial_) {}
+    : odriveSerial_(8, 9), odrive_(odriveSerial_) {}  // D8 RX, D9 TX
 
 void BldcMotor::configureVelocityRamp() {
   const float rampTurnsPerSec2 =
@@ -55,7 +58,10 @@ void BldcMotor::applyTargetVelocity() {
     return;
   }
 
-  odrive_.setVelocity(rpmToTurnsPerSec(targetRpm_));
+  // odrive_.setVelocity(rpmToTurnsPerSec(targetRpm_));  
+  odrive_.setVelocity(targetRpm_);  
+  Serial.print("odrive.setVelocity "); // debug.. remove later.
+  Serial.println(targetRpm_);
   fault_ = false;
 }
 
@@ -87,14 +93,10 @@ void BldcMotor::startRampTo(int rpm) {
   if (!armed_) {
     enable(true);
   }
-  rampTo(rpm);
-}
-
-void BldcMotor::rampTo(int rpm) {
+  Serial.print("BLDC: startRampTo ");
+  Serial.println(rpm);
   targetRpm_ = constrain(rpm, -BLDC_RATED_RPM, BLDC_RATED_RPM);
-  if (armed_) {
-    applyTargetVelocity();
-  }
+  applyTargetVelocity();
 }
 
 void BldcMotor::stopImmediate() {
@@ -109,7 +111,7 @@ void BldcMotor::cutPower() {
   armed_ = false;
 }
 
-void BldcMotor::stop() { rampTo(0); }
+void BldcMotor::stop() { startRampTo(0); }
 
 void BldcMotor::enable(bool on) {
   if (on) {
@@ -131,8 +133,20 @@ void BldcMotor::poll() {
   lastFeedbackMs_ = now;
 
   const ODriveFeedback feedback = odrive_.getFeedback();
-  feedbackRpm_ = turnsPerSecToRpm(feedback.vel);
+  feedbackRpm_ = feedback.vel;
   currentRpm_ = feedbackRpm_;
+
+  // 1-second moving average (kAvgLen slots, updated every ODRIVE_FEEDBACK_INTERVAL_MS)
+  velBufSum_ -= velBuf_[velBufIdx_];
+  velBuf_[velBufIdx_] = feedbackRpm_;
+  velBufSum_ += feedbackRpm_;
+  velBufIdx_ = (velBufIdx_ + 1) % kAvgLen;
+  smoothedRpm_ = static_cast<int>(velBufSum_ / kAvgLen);
+
+  // Serial.print(F("cmd=")); Serial.print(targetRpm_);
+  // Serial.print(F(" rpm  pos=")); Serial.print(feedback.pos, 3);
+  // Serial.print(F("  vel=")); Serial.print(feedback.vel, 3);
+  // Serial.println(F(" turns/s"));
 
   if (armed_ && targetRpm_ != 0) {
     const ODriveAxisState state = odrive_.getState();

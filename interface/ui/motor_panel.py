@@ -23,8 +23,10 @@ from ui.widgets import GlowingCard, PulsingIndicator, AnimatedMetricValue
 class MotorMetricPanel(GlowingCard):
     """Motor metrics display panel with optional manual speed input."""
 
-    # Emitted when the user clicks SET after entering a manual speed.
+    # Emitted when the user clicks SET after entering a valid manual speed.
     manual_speed_changed = pyqtSignal(float)
+    # Emitted when an out-of-range value is rejected (carries a reason string).
+    manual_speed_rejected = pyqtSignal(str)
 
     def __init__(
         self,
@@ -38,6 +40,10 @@ class MotorMetricPanel(GlowingCard):
         super().__init__(parent)
         self.unit = unit
         self.target_rpm = target_rpm
+        self.speed_min = speed_min
+        self.speed_max = speed_max
+        # Last value accepted via SET; an out-of-range SET reverts to this.
+        self._last_valid_text = ""
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 16, 20, 16)
@@ -162,9 +168,9 @@ class MotorMetricPanel(GlowingCard):
         self._target_label.setText(f"{rpm:.0f} {self.unit}")
 
     def update_metrics(self, actual: Optional[float]):
-        """Update displayed metrics. Pass None to show N/A when no feedback exists."""
+        """Update displayed metrics. Pass None when no feedback exists."""
         if actual is None:
-            self.actual_value.set_value(None)
+            self.actual_value.set_value(None, self.unit)
             self.error_value.setText("--")
             muted = Theme.TEXT_MUTED
             self.actual_value.setStyleSheet(f"color: {muted};")
@@ -210,6 +216,20 @@ class MotorMetricPanel(GlowingCard):
         if not text:
             return
         try:
-            self.manual_speed_changed.emit(float(text))
+            value = float(text)
         except ValueError:
-            pass
+            self._reject(text)
+            return
+        if not (self.speed_min <= value <= self.speed_max):
+            self._reject(text)
+            return
+        self._last_valid_text = text
+        self.manual_speed_changed.emit(value)
+
+    def _reject(self, bad_text: str):
+        """Restore the previous within-range value and report the rejection."""
+        self.manual_input.setText(self._last_valid_text)
+        self.manual_speed_rejected.emit(
+            f"{bad_text} out of range "
+            f"({self.speed_min:.0f}-{self.speed_max:.0f} {self.unit})"
+        )

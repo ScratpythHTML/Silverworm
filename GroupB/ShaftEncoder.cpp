@@ -35,18 +35,19 @@ static void enc2Isr() {
   gLastAbState = state;
 }
 
-#if defined(ARDUINO_ARCH_AVR)
-ISR(PCINT2_vect) {
-  // D0..D7 pin-change group on ATmega328P (PORTD).
-  enc2Isr();
-}
-#endif
+// ISR(PCINT2_vect) commented out — SoftwareSerial (ODrive UART) owns all PCINT vectors.
+// Re-enable and switch to AltSoftSerial if ShaftEncoder interrupt counting is needed again.
+// #if defined(ARDUINO_ARCH_AVR)
+// ISR(PCINT2_vect) {
+//   enc2Isr();
+// }
+// #endif
 
 void ShaftEncoder::begin() {
   gEncoder = this;
   count_ = 0;
   lastCount_ = 0;
-  rpm_ = 0;
+  rpm_ = 0.0f;
   lastSampleMs_ = millis();
 
   pinMode(ENC2_A_PIN, INPUT_PULLUP);
@@ -57,15 +58,15 @@ void ShaftEncoder::begin() {
 
   gLastAbState = readAbState();
 
-#if defined(ARDUINO_ARCH_AVR)
-  // Uno R2 (ATmega328P): ENC2_* are on D5..D7 (PORTD), so use pin-change interrupts.
-  PCICR |= _BV(PCIE2);  // enable PORTD pin-change interrupt group
-  PCMSK2 |= _BV(PCINT21);  // D5 / PD5
-  PCMSK2 |= _BV(PCINT22);  // D6 / PD6
-#if ENC2_Z_PIN >= 0
-  PCMSK2 |= _BV(PCINT23);  // D7 / PD7
-#endif
-#else
+// PCINT2 setup commented out — SoftwareSerial (ODrive UART) owns PCINT vectors.
+// #if defined(ARDUINO_ARCH_AVR)
+//   PCICR |= _BV(PCIE2);
+//   PCMSK2 |= _BV(PCINT21);  // D5 / PD5
+//   PCMSK2 |= _BV(PCINT22);  // D6 / PD6
+// #if ENC2_Z_PIN >= 0
+//   PCMSK2 |= _BV(PCINT23);  // D7 / PD7
+// #endif
+#if !defined(ARDUINO_ARCH_AVR)  // non-AVR fallback only
   attachInterrupt(digitalPinToInterrupt(ENC2_A_PIN), enc2Isr, CHANGE);
   attachInterrupt(digitalPinToInterrupt(ENC2_B_PIN), enc2Isr, CHANGE);
 #if ENC2_Z_PIN >= 0
@@ -100,9 +101,7 @@ void ShaftEncoder::poll() {
   const long delta = c - lastCount_;
   lastCount_ = c;
 
-  const long rpmTimes10 =
-      (delta * 600000L) / (static_cast<long>(ENC2_CPR) * static_cast<long>(dt));
-  rpm_ = static_cast<int>(rpmTimes10 / 10);
+  rpm_ = (delta * 60000.0f) / (ENC2_CPR * (float)dt);
 }
 
-int ShaftEncoder::rpm() const { return rpm_; }
+float ShaftEncoder::rpm() const { return rpm_; }

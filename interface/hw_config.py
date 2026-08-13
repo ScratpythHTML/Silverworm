@@ -83,17 +83,17 @@ RPI5 = PlatformConfig(
     ),
     wrap_spi=SPIConfig(
         bus=1, device=2,
-        mosi_gpio=10,        # pin 19
-        miso_gpio=9,         # pin 21
-        sclk_gpio=11,        # pin 23
-        cs_gpio=7,           # pin 24 CE0
+        mosi_gpio=20,
+        miso_gpio=19,
+        sclk_gpio=21,
+        cs_gpio=16,
     ),
     feed_spi=SPIConfig(
         bus=1, device=0,
-        mosi_gpio=20,        # pin 38
-        miso_gpio=19,        # pin 35
-        sclk_gpio=21,        # pin 40
-        cs_gpio=18,          # pin 12 CE0
+        mosi_gpio=20,
+        miso_gpio=19,
+        sclk_gpio=21,
+        cs_gpio=18,
     ),
 )
 

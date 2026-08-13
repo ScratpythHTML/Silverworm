@@ -12,9 +12,12 @@ from typing import Optional
 import sys
 import os
 import tempfile
+from pathlib import Path
 
-# Add image-processing to path
-sys.path.insert(0, '/Users/anhad/Silverworm-app/image-processing')
+# Add the sibling image-processing directory to the import path. Keep this
+# repo-relative so tests/dev work on macOS and the deployed Pi/CM5 image.
+IMAGE_PROCESSING_DIR = Path(__file__).resolve().parents[2] / "image-processing"
+sys.path.insert(0, str(IMAGE_PROCESSING_DIR))
 
 try:
     from pitch_estimate import PitchResult, estimate_pitch
@@ -33,6 +36,14 @@ except ImportError:
         scale_um_per_px: float
         texture_angle_deg: float
         thread_angle_deg: float
+
+    estimate_pitch = None
+
+
+# Pitch estimation runs on a timer at this period — NOT on every camera
+# frame. The camera feed updates `_latest_frame` continuously; detection
+# only processes the most recent frame each tick.
+PITCH_DETECTION_INTERVAL_MS = 2000
 
 
 class PitchDetectionPipeline(QObject):
@@ -53,12 +64,13 @@ class PitchDetectionPipeline(QObject):
     manual_mode_triggered = pyqtSignal(str)  # Confidence level
     detection_error = pyqtSignal(str)         # Error message
 
-    def __init__(self, interval_ms: int = 2000, parent=None):
+    def __init__(self, interval_ms: int = PITCH_DETECTION_INTERVAL_MS, parent=None):
         """
         Initialize pitch detection pipeline.
 
         Args:
-            interval_ms: Detection interval in milliseconds (default: 2000 = 2 seconds)
+            interval_ms: Detection interval in milliseconds (default:
+                PITCH_DETECTION_INTERVAL_MS = 2000 = 2 seconds)
             parent: Parent QObject
         """
         super().__init__(parent)
@@ -80,10 +92,17 @@ class PitchDetectionPipeline(QObject):
         self._timer.start(self.interval_ms)
 
     def stop(self):
-        """Stop pitch detection"""
+        """Stop pitch detection and release the retained frame."""
         self._enabled = False
         self._timer.stop()
         self._consecutive_low_count = 0
+        # Drop the retained frame so we don't pin a full-resolution image
+        # in memory while detection is idle (e.g. in manual mode).
+        self._latest_frame = None
+
+    def is_active(self) -> bool:
+        """True while the periodic detection timer is running."""
+        return self._timer.isActive()
 
     def set_interval(self, interval_ms: int):
         """
@@ -104,7 +123,12 @@ class PitchDetectionPipeline(QObject):
             frame: BGR numpy array from camera
         """
         if frame is not None and frame.size > 0:
-            self._latest_frame = frame.copy()
+            # Keep a reference, not a copy. This slot fires on every camera
+            # frame (~30/s) but _run_detection only reads _latest_frame every
+            # few seconds. cv2.VideoCapture.read() allocates a fresh array per
+            # frame and no downstream slot mutates frames in place, so holding
+            # the reference is safe and avoids a full-frame copy per frame.
+            self._latest_frame = frame
 
     def trigger_manual_detection(self):
         """Manually trigger detection immediately (e.g., from SNAPSHOT button)"""
@@ -134,9 +158,7 @@ class PitchDetectionPipeline(QObject):
                 raise IOError(f"Failed to write frame to {tmp_path}")
 
             # Run pitch detection (disable plots for live mode)
-            try:
-                result = estimate_pitch(tmp_path, show_plots=False)
-            except NameError:
+            if estimate_pitch is None:
                 # pitch_estimate not available - create dummy result for testing
                 result = PitchResult(
                     pitches_um=np.array([100.0, 102.0, 98.0]),
@@ -148,6 +170,8 @@ class PitchDetectionPipeline(QObject):
                     texture_angle_deg=45.0,
                     thread_angle_deg=0.0
                 )
+            else:
+                result = estimate_pitch(tmp_path, show_plots=False)
 
             # Emit result
             self.pitch_result_ready.emit(result)

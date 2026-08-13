@@ -75,6 +75,7 @@ class StartupConfigDialog(QDialog):
             target_pitch_um=float(self.pitch_input.text()),
             wire_thickness_um=float(self.thickness_input.text()),
             tube_diameter_mm=float(self.diameter_input.text()),
+            initial_feed_speed_mms=float(self.feed_speed_input.text()),
             detent_config=self._initial.detent_config,
             manual_mode_gui_enabled=self._initial.manual_mode_gui_enabled,
             remember_settings=self.remember_checkbox.isChecked(),
@@ -212,6 +213,33 @@ class StartupConfigDialog(QDialog):
         grid.addWidget(self.diameter_input, 2, 1)
         grid.addWidget(diameter_unit, 2, 2)
 
+        # Row 3: Initial Feed Speed
+        feed_label = QLabel("Initial Feed Speed")
+        feed_tip = QToolButton()
+        feed_tip.setText("ⓘ")
+        feed_tip.setToolTip(
+            "Starting feed motor speed sent when the machine powers on.\n"
+            "AUTO mode will adjust this after the first pitch estimate.\n"
+            "0 = motor starts stopped and waits for AUTO correction."
+        )
+        feed_tip.setCursor(Qt.CursorShape.WhatsThisCursor)
+        feed_label_row = QHBoxLayout()
+        feed_label_row.setContentsMargins(0, 0, 0, 0)
+        feed_label_row.setSpacing(4)
+        feed_label_row.addWidget(feed_label)
+        feed_label_row.addWidget(feed_tip)
+        feed_label_row.addStretch()
+        feed_label_wrap = QWidgetContainer(feed_label_row)
+
+        self.feed_speed_input = QLineEdit(f"{self._initial.initial_feed_speed_mms:g}")
+        self.feed_speed_input.setValidator(QDoubleValidator(0.0, 20.0, 3))
+        feed_unit = QLabel("mm/s")
+        feed_unit.setStyleSheet(f"color: {_Theme.TEXT_MUTED};")
+
+        grid.addWidget(feed_label_wrap, 3, 0)
+        grid.addWidget(self.feed_speed_input, 3, 1)
+        grid.addWidget(feed_unit, 3, 2)
+
         grid.setColumnStretch(1, 1)
         outer.addLayout(grid)
 
@@ -317,7 +345,8 @@ class StartupConfigDialog(QDialog):
             btn.setStyleSheet(self._platform_btn_style(k == key))
 
     def _wire_validation(self):
-        for w in (self.pitch_input, self.thickness_input, self.diameter_input):
+        for w in (self.pitch_input, self.thickness_input, self.diameter_input,
+                  self.feed_speed_input):
             w.textChanged.connect(self._update_angle_preview)
 
     # ----- behaviour -----------------------------------------------------

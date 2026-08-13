@@ -13,5 +13,9 @@ bool spiIdle();
 // Does nothing and returns false if a reply is already in flight.
 bool setReply(byte a, byte b = 0, byte c = 0, byte length = 1);
 
+// Update the RPM value returned on the next kQuery (0x05) request.
+// Safe to call from loop(); ISR reads it atomically.
+void spiSetQueryRpm(int16_t rpm);
+
 // Call once from setup() to configure the ATmega328P SPI peripheral as a slave.
 void spiSlaveBegin();

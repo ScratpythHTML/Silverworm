@@ -1,12 +1,13 @@
 """
-Unit tests for RollingBuffer.
+Unit tests for the disk-backed RollingBuffer.
 
-The window is set to 10 seconds so the test suite finishes quickly.
-Production uses 300 seconds (5 minutes) — the logic is identical.
+RollingBuffer spools the camera feed to short MP4 segments on flash (not
+RAM). These tests use tiny frames, short windows, and a monkeypatched clock
+so they run quickly and deterministically. They require cv2 for the encode
+path; tests that don't touch encoding run without it.
 """
 
 import time
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -18,200 +19,218 @@ from camera.rolling_buffer import RollingBuffer
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_frame(val: int = 128, h: int = 4, w: int = 4) -> np.ndarray:
-    """Return a tiny solid-colour BGR frame."""
+def _make_frame(val: int = 128, h: int = 64, w: int = 64) -> np.ndarray:
+    """Return a small solid-colour BGR frame (16-divisible dims for the codec)."""
     return np.full((h, w, 3), val, dtype=np.uint8)
 
 
 # ---------------------------------------------------------------------------
-# Basic add / eviction
+# Empty / no-cv2 behaviour
 # ---------------------------------------------------------------------------
 
-class TestBasicAddEviction:
+class TestEmpty:
 
-    def test_empty_initially(self):
-        buf = RollingBuffer(window_seconds=10.0)
+    def test_empty_initially(self, tmp_path):
+        buf = RollingBuffer(temp_dir=tmp_path)
         assert buf.frame_count == 0
+        assert buf.segment_count == 0
+        assert buf.estimated_bytes == 0
+        assert buf.duration_seconds == 0.0
 
-    def test_add_single_frame(self):
-        buf = RollingBuffer(window_seconds=10.0)
+    def test_timestamps_none_when_empty(self, tmp_path):
+        buf = RollingBuffer(temp_dir=tmp_path)
+        assert buf.oldest_timestamp is None
+        assert buf.newest_timestamp is None
+
+    def test_save_returns_false_when_empty(self, tmp_path):
+        buf = RollingBuffer(temp_dir=tmp_path)
+        assert buf.save(tmp_path / "empty.mp4") is False
+
+    def test_purges_stale_temp_on_init(self, tmp_path):
+        """Segments left behind by a previous run/crash are deleted on init."""
+        stale = tmp_path / "seg_123_1.mp4"
+        stale.write_bytes(b"junk")
+        RollingBuffer(temp_dir=tmp_path)
+        assert not stale.exists()
+
+
+# ---------------------------------------------------------------------------
+# Recording to disk
+# ---------------------------------------------------------------------------
+
+class TestRecording:
+
+    def test_add_frame_writes_segment(self, tmp_path):
+        pytest.importorskip("cv2")
+        buf = RollingBuffer(temp_dir=tmp_path, sample_fps=0, segment_seconds=100)
         buf.add_frame(_make_frame())
         assert buf.frame_count == 1
+        assert buf.segment_count == 1
 
-    def test_add_multiple_frames_within_window(self):
-        buf = RollingBuffer(window_seconds=10.0)
+    def test_multiple_frames_one_segment(self, tmp_path):
+        pytest.importorskip("cv2")
+        buf = RollingBuffer(temp_dir=tmp_path, sample_fps=0, segment_seconds=100)
         for _ in range(5):
             buf.add_frame(_make_frame())
         assert buf.frame_count == 5
+        assert buf.segment_count == 1
 
-    def test_frames_older_than_window_are_evicted(self, monkeypatch):
-        """Frames added before the window cutoff should be dropped."""
-        buf = RollingBuffer(window_seconds=10.0)
+    def test_rotation_creates_segments(self, tmp_path, monkeypatch):
+        pytest.importorskip("cv2")
+        t = [0.0]
+        monkeypatch.setattr(time, "monotonic", lambda: t[0])
+        buf = RollingBuffer(
+            temp_dir=tmp_path, sample_fps=0, segment_seconds=10, window_seconds=1000
+        )
+        buf.add_frame(_make_frame())   # t=0  → seg1
+        t[0] = 5
+        buf.add_frame(_make_frame())   # t=5  → still seg1
+        t[0] = 12
+        buf.add_frame(_make_frame())   # t=12 → rotate, seg2 opens
+        assert buf.segment_count == 2  # 1 finalised + 1 open
+        assert buf.frame_count == 3
 
-        # Simulate: first frame at t=0
-        fake_time = [0.0]
-        monkeypatch.setattr(time, "monotonic", lambda: fake_time[0])
+    def test_estimated_bytes_tracks_disk(self, tmp_path):
+        pytest.importorskip("cv2")
+        buf = RollingBuffer(temp_dir=tmp_path, sample_fps=0, segment_seconds=100)
+        for _ in range(10):
+            buf.add_frame(_make_frame())
+        assert buf.estimated_bytes > 0
 
-        buf.add_frame(_make_frame(10))
 
-        # Advance 11 seconds and add a new frame — old one should be evicted
-        fake_time[0] = 11.0
-        buf.add_frame(_make_frame(20))
+# ---------------------------------------------------------------------------
+# Sampling
+# ---------------------------------------------------------------------------
 
-        assert buf.frame_count == 1
+class TestSampling:
 
-    def test_frames_within_window_are_kept(self, monkeypatch):
-        buf = RollingBuffer(window_seconds=10.0)
-        fake_time = [0.0]
-        monkeypatch.setattr(time, "monotonic", lambda: fake_time[0])
+    def test_sampling_drops_frames_faster_than_sample_fps(self, tmp_path, monkeypatch):
+        pytest.importorskip("cv2")
+        t = [0.0]
+        monkeypatch.setattr(time, "monotonic", lambda: t[0])
+        buf = RollingBuffer(temp_dir=tmp_path, sample_fps=5.0, segment_seconds=100)
 
-        for i in range(5):
-            fake_time[0] = float(i)       # t=0,1,2,3,4 — all within 10s of t=9
-            buf.add_frame(_make_frame(i))
+        buf.add_frame(_make_frame())   # t=0.00 → stored
+        t[0] = 0.05
+        buf.add_frame(_make_frame())   # +0.05s → dropped
+        t[0] = 0.10
+        buf.add_frame(_make_frame())   # +0.10s → dropped
+        t[0] = 0.30
+        buf.add_frame(_make_frame())   # +0.30s → stored
 
-        fake_time[0] = 9.0
-        buf.add_frame(_make_frame(99))    # t=9 — triggers eviction check
-        # Frames at t=0..4 are within 9 - 10 = -1 cutoff, so all kept
-        assert buf.frame_count == 6
+        assert buf.frame_count == 2
 
-    def test_clear_empties_buffer(self):
-        buf = RollingBuffer(window_seconds=10.0)
+    def test_sampling_disabled_stores_every_frame(self, tmp_path):
+        pytest.importorskip("cv2")
+        buf = RollingBuffer(temp_dir=tmp_path, sample_fps=0, segment_seconds=100)
+        for _ in range(8):
+            buf.add_frame(_make_frame())
+        assert buf.frame_count == 8
+
+
+# ---------------------------------------------------------------------------
+# Bounded eviction (time + bytes)
+# ---------------------------------------------------------------------------
+
+class TestEviction:
+
+    def test_evicts_segments_older_than_window(self, tmp_path, monkeypatch):
+        pytest.importorskip("cv2")
+        t = [0.0]
+        monkeypatch.setattr(time, "monotonic", lambda: t[0])
+        buf = RollingBuffer(
+            temp_dir=tmp_path, sample_fps=0, segment_seconds=5, window_seconds=10
+        )
+        buf.add_frame(_make_frame())   # t=0  seg1
+        t[0] = 6
+        buf.add_frame(_make_frame())   # t=6  rotate → seg2
+        t[0] = 20
+        buf.add_frame(_make_frame())   # t=20 rotate → seg3; seg1+seg2 now > 10s old
+        assert buf.segment_count == 1  # only the open seg3 remains
+        assert len(list(tmp_path.glob("seg_*.mp4"))) == 1  # old files deleted
+
+    def test_evicts_by_byte_cap(self, tmp_path, monkeypatch):
+        """With a tiny max_bytes, only the newest finalised segment is kept."""
+        pytest.importorskip("cv2")
+        t = [0.0]
+        monkeypatch.setattr(time, "monotonic", lambda: t[0])
+        buf = RollingBuffer(
+            temp_dir=tmp_path, sample_fps=0, segment_seconds=5,
+            window_seconds=100000, max_bytes=1,
+        )
+        for i in range(4):
+            t[0] = i * 10           # force a rotation on each add
+            buf.add_frame(_make_frame())
+        # max_bytes=1 keeps at most one finalised segment (+ the open one).
+        assert buf.segment_count == 2
+        assert len(list(tmp_path.glob("seg_*.mp4"))) == 2
+
+
+# ---------------------------------------------------------------------------
+# Save (persist on error) + discard (routine cleanup)
+# ---------------------------------------------------------------------------
+
+class TestSaveDiscard:
+
+    def test_save_creates_file(self, tmp_path):
+        pytest.importorskip("cv2")
+        buf = RollingBuffer(temp_dir=tmp_path / "tmp", sample_fps=0, segment_seconds=100)
+        for _ in range(10):
+            buf.add_frame(_make_frame())
+        out = tmp_path / "out" / "rec.mp4"
+        assert buf.save(out) is True
+        assert out.exists()
+        assert out.stat().st_size > 0
+
+    def test_save_leaves_no_temp_artifact(self, tmp_path):
+        pytest.importorskip("cv2")
+        buf = RollingBuffer(temp_dir=tmp_path / "tmp", sample_fps=0, segment_seconds=100)
+        for _ in range(5):
+            buf.add_frame(_make_frame())
+        out = tmp_path / "rec.mp4"
+        buf.save(out)
+        assert list(tmp_path.glob("*.tmp.mp4")) == []
+
+    def test_discard_deletes_temp_files(self, tmp_path):
+        pytest.importorskip("cv2")
+        tmp = tmp_path / "tmp"
+        buf = RollingBuffer(temp_dir=tmp, sample_fps=0, segment_seconds=100)
+        for _ in range(3):
+            buf.add_frame(_make_frame())
+        assert len(list(tmp.glob("seg_*.mp4"))) >= 1
+
+        buf.discard()
+        assert buf.frame_count == 0
+        assert buf.segment_count == 0
+        assert list(tmp.glob("seg_*.mp4")) == []
+
+    def test_clear_is_discard(self, tmp_path):
+        pytest.importorskip("cv2")
+        buf = RollingBuffer(temp_dir=tmp_path, sample_fps=0, segment_seconds=100)
         for _ in range(3):
             buf.add_frame(_make_frame())
         buf.clear()
         assert buf.frame_count == 0
 
-    def test_frames_are_copied_not_referenced(self):
-        """add_frame must copy the frame so mutations to the source don't corrupt the buffer."""
-        buf = RollingBuffer(window_seconds=10.0)
-        frame = _make_frame(0)
-        buf.add_frame(frame)
-        frame[:] = 255  # mutate original
-        with buf._lock:
-            stored = buf._frames[0].frame
-        assert stored[0, 0, 0] == 0   # buffer still has the original value
-
 
 # ---------------------------------------------------------------------------
-# Duration / timestamp properties
+# Timestamp / duration introspection
 # ---------------------------------------------------------------------------
 
-class TestTimestampProperties:
+class TestTimestamps:
 
-    def test_duration_zero_with_one_frame(self):
-        buf = RollingBuffer(window_seconds=10.0)
-        buf.add_frame(_make_frame())
-        assert buf.duration_seconds == 0.0
-
-    def test_duration_reflects_actual_span(self, monkeypatch):
-        buf = RollingBuffer(window_seconds=60.0)
-        fake_time = [0.0]
-        monkeypatch.setattr(time, "monotonic", lambda: fake_time[0])
-
+    def test_duration_reflects_span(self, tmp_path, monkeypatch):
+        pytest.importorskip("cv2")
+        t = [0.0]
+        monkeypatch.setattr(time, "monotonic", lambda: t[0])
+        buf = RollingBuffer(
+            temp_dir=tmp_path, sample_fps=0, segment_seconds=2, window_seconds=1000
+        )
         buf.add_frame(_make_frame())   # t=0
-        fake_time[0] = 5.0
-        buf.add_frame(_make_frame())   # t=5
-        fake_time[0] = 9.0
-        buf.add_frame(_make_frame())   # t=9
-
-        assert buf.duration_seconds == pytest.approx(9.0)
-
-    def test_oldest_and_newest_timestamps(self, monkeypatch):
-        buf = RollingBuffer(window_seconds=60.0)
-        fake_time = [0.0]
-        monkeypatch.setattr(time, "monotonic", lambda: fake_time[0])
-
-        buf.add_frame(_make_frame())   # t=0
-        fake_time[0] = 3.0
-        buf.add_frame(_make_frame())   # t=3
-
+        t[0] = 3
+        buf.add_frame(_make_frame())   # rotate → seg2
+        t[0] = 5
+        buf.add_frame(_make_frame())   # rotate → seg3
+        assert buf.duration_seconds == pytest.approx(5.0)
         assert buf.oldest_timestamp == pytest.approx(0.0)
-        assert buf.newest_timestamp == pytest.approx(3.0)
-
-    def test_none_timestamps_when_empty(self):
-        buf = RollingBuffer(window_seconds=10.0)
-        assert buf.oldest_timestamp is None
-        assert buf.newest_timestamp is None
-
-
-# ---------------------------------------------------------------------------
-# Save to MP4
-# ---------------------------------------------------------------------------
-
-class TestSave:
-
-    def test_save_returns_false_when_empty(self, tmp_path):
-        buf = RollingBuffer(window_seconds=10.0)
-        ok = buf.save(tmp_path / "empty.mp4")
-        assert ok is False
-
-    def test_save_creates_file(self, tmp_path):
-        pytest.importorskip("cv2")
-        buf = RollingBuffer(window_seconds=10.0, nominal_fps=5.0)
-        for _ in range(10):
-            buf.add_frame(_make_frame())
-        out = tmp_path / "test_recording.mp4"
-        ok = buf.save(out)
-        assert ok is True
-        assert out.exists()
-        assert out.stat().st_size > 0
-
-    def test_save_creates_parent_dirs(self, tmp_path):
-        pytest.importorskip("cv2")
-        buf = RollingBuffer(window_seconds=10.0, nominal_fps=5.0)
-        buf.add_frame(_make_frame())
-        out = tmp_path / "a" / "b" / "c" / "rec.mp4"
-        ok = buf.save(out)
-        assert ok is True
-        assert out.exists()
-
-    def test_save_does_not_leave_temp_file_on_success(self, tmp_path):
-        pytest.importorskip("cv2")
-        buf = RollingBuffer(window_seconds=10.0, nominal_fps=5.0)
-        buf.add_frame(_make_frame())
-        out = tmp_path / "rec.mp4"
-        buf.save(out)
-        tmp_files = list(tmp_path.glob("*.tmp.mp4"))
-        assert tmp_files == []
-
-    def test_save_10s_rolling_window(self, tmp_path, monkeypatch):
-        """Integration: simulate 10 seconds of frames and save the buffer."""
-        pytest.importorskip("cv2")
-        buf = RollingBuffer(window_seconds=10.0, nominal_fps=10.0)
-        fake_time = [0.0]
-        monkeypatch.setattr(time, "monotonic", lambda: fake_time[0])
-
-        # Add 100 frames spread over 10 seconds at 10 fps
-        for i in range(100):
-            fake_time[0] = i * 0.1   # 0.0 → 9.9
-            buf.add_frame(_make_frame(i % 256))
-
-        assert buf.frame_count == 100
-
-        out = tmp_path / "window_10s.mp4"
-        ok = buf.save(out)
-        assert ok is True
-        assert out.exists()
-
-    def test_save_evicts_old_frames_before_saving(self, tmp_path, monkeypatch):
-        """Frames outside the 10s window must NOT appear in the saved file."""
-        pytest.importorskip("cv2")
-        buf = RollingBuffer(window_seconds=10.0, nominal_fps=10.0)
-        fake_time = [0.0]
-        monkeypatch.setattr(time, "monotonic", lambda: fake_time[0])
-
-        # 5 frames in the first second (will be evicted)
-        for i in range(5):
-            buf.add_frame(_make_frame(10))
-
-        # Jump to t=15 and add 5 new frames
-        fake_time[0] = 15.0
-        for i in range(5):
-            buf.add_frame(_make_frame(200))
-
-        # Only the 5 recent frames should remain
-        assert buf.frame_count == 5
-
-        out = tmp_path / "evicted.mp4"
-        ok = buf.save(out)
-        assert ok is True
+        assert buf.newest_timestamp == pytest.approx(5.0)

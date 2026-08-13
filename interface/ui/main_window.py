@@ -17,7 +17,6 @@ from __future__ import annotations
 import math
 import os
 import random
-import struct
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -25,10 +24,10 @@ from typing import Optional
 import numpy as np
 
 from PyQt6.QtCore import Qt, QTimer, QStandardPaths
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QPushButton, QFileDialog, QInputDialog,
+    QLabel, QPushButton, QFileDialog,
 )
 
 # Hardware + state
@@ -39,7 +38,6 @@ from config import AppConfig, save_config, calculate_wrap_angle_deg
 from hardware import build_transports
 from comms import PUIListener, MotorController
 from comms import MockTransport, Transport
-from comms.motor_spi import MockSPITransport, ResponsePrefix
 from controller import (
     SetpointController, OperatingMode, Setpoints,
     SPEED_A_MIN, SPEED_A_MAX, SPEED_B_MIN, SPEED_B_MAX,
@@ -49,7 +47,14 @@ from storage import StorageManager
 # Camera + vision
 from camera import CameraDetector, CameraWorker, CameraConfig
 from camera.rolling_buffer import RollingBuffer
-from processing import PitchDetectionPipeline
+from processing import PitchDetectionPipeline, PITCH_DETECTION_INTERVAL_MS
+from pitch_control import (
+    measurement_from_pitch_result,
+    process_pitch_result,
+    compute_initial_feed_speed_mm_s,
+    compute_wrapper_rpm_from_feed_speed,
+)
+from telemetry import TelemetryLog
 
 # Widgets
 from ui.theme import Theme
@@ -61,6 +66,14 @@ from ui.control_panel import ControlPanel
 from ui.camera_widget import EnhancedCameraView
 from ui.manual_mode_dialog import ManualModeBanner
 from ui.manual_overlay_panel import ManualOverlayPanel
+from ui.startup_dialog import StartupConfigDialog
+from ui.detent_dialog import DetentConfigDialog
+from ui.hil_panel import HILTestPanel
+
+
+# Motors are polled at 10 Hz; print the combined SPI line every Nth poll
+# (10 → once per second) to keep the terminal readable.
+POLL_PRINT_EVERY = 10
 
 
 class MainWindow(QMainWindow):
@@ -86,13 +99,38 @@ class MainWindow(QMainWindow):
         self._secondary_worker: Optional[CameraWorker] = None
         self._active_camera: str = "microscope"
         self._current_raw_frame: Optional[np.ndarray] = None
-        self.pitch_pipeline = PitchDetectionPipeline(interval_ms=2000, parent=self)
+        self.pitch_pipeline = PitchDetectionPipeline(
+            interval_ms=PITCH_DETECTION_INTERVAL_MS, parent=self
+        )
+        # Camera worker currently feeding the pitch pipeline (None = none).
+        self._pitch_source: Optional[CameraWorker] = None
+        self._buffer_log_counter = 0
+        self._last_incident_save_ts: float = 0.0
+        self._motor_fault_shutdown_pending = False
         self.manual_banner: Optional[ManualModeBanner] = None
 
-        # Storage and rolling buffer
-        self.rolling_buffer = RollingBuffer(window_seconds=300.0)
+        # When False, the live camera pitch pipeline does NOT run or drive
+        # corrections — pitch values come only from HIL injection (simulating
+        # the microscope). Enable once a real microscope is attached.
+        self._camera_correction_enabled = False
+
+        # Speed-command telemetry (AUTO / HIL / manual). Shared by the camera
+        # path and feed-motor feedback to measure response time + pitch
+        # sensitivity for the testing report.
+        self.telemetry = TelemetryLog()
+        self._prev_feed_commanded: float = 0.0
+        self._last_mismatch_warn_ts: float = 0.0
+
+        # Storage + disk-backed rolling recorder. Footage is spooled to flash
+        # (a temp dir under the recordings folder), NOT RAM, and is only kept
+        # permanently on a sudden error (see _persist_recording).
         self.storage = StorageManager()
+        self.rolling_buffer = RollingBuffer(
+            temp_dir=self.storage.recordings_dir / "tmp",
+            window_seconds=180.0,
+        )
         self._snapshot_dir = self._get_default_pictures_dir()
+        self._recording_save_dir = self.storage.recordings_dir
 
         # Legacy setpoint controller + UART transport (still used by the
         # low-confidence auto-manual flow; the new AppState path is the
@@ -114,6 +152,9 @@ class MainWindow(QMainWindow):
         self._connect_motor_feedback()
         self._setup_controller_callbacks()
         self._apply_styles()
+        # Pre-load speed setpoints from config — must be after signal wiring
+        # so the motor panel target label and telemetry labels update too.
+        self._apply_initial_speeds()
 
         self.alert_log.log("System initialized", "success")
         if self._transports.is_mock:
@@ -137,8 +178,8 @@ class MainWindow(QMainWindow):
         self._transports = build_transports(self.config)
 
         self.pui_listener = PUIListener(self._transports.pui, parent=self)
-        self.wrap_motor_controller = MotorController(self._transports.wrap_spi, parent=self)
-        self.feed_motor_controller = MotorController(self._transports.feed_spi, parent=self)
+        self.wrap_motor_controller = MotorController(self._transports.wrap_spi, name="WRAP", parent=self)
+        self.feed_motor_controller = MotorController(self._transports.feed_spi, name="FEED", parent=self)
 
         # Motor SPI transports must be opened before AppState can drive them.
         # A real hardware failure raises here; we catch and continue with mocks-ish
@@ -171,6 +212,7 @@ class MainWindow(QMainWindow):
         # Poll motor controllers for response packets at 10 Hz.
         # No-op on MockSPITransport unless tests inject responses; on real
         # hardware this is what drives the actual-speed readout.
+        self._poll_print_counter = 0
         self.motor_poll_timer = QTimer()
         self.motor_poll_timer.setInterval(100)
         self.motor_poll_timer.timeout.connect(self._poll_motors)
@@ -211,9 +253,21 @@ class MainWindow(QMainWindow):
         header = QHBoxLayout(header_widget)
         header.setContentsMargins(0, 0, 0, 12)
 
-        title = QLabel("Silverworm Control System")
-        title.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
-        title.setStyleSheet(f"color: {Theme.TEXT_PRIMARY};")
+        # Brand wordmark (falls back to the text title if the image is missing).
+        # Scaled by height with aspect preserved; the wide left header has plenty
+        # of room, so this stays a header banner without disturbing the layout.
+        title = QLabel()
+        logo_path = Path(__file__).resolve().parents[2] / "logos" / "Text logoresized.png"
+        logo = QPixmap(str(logo_path))
+        if not logo.isNull():
+            title.setPixmap(
+                logo.scaledToHeight(52, Qt.TransformationMode.SmoothTransformation)
+            )
+            title.setStyleSheet("background: transparent;")
+        else:
+            title.setText("Silverworm Control System")
+            title.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
+            title.setStyleSheet(f"color: {Theme.TEXT_PRIMARY};")
 
         self.status_indicator = PulsingIndicator(Theme.WARNING)
         self.status_label = QLabel("STANDBY")
@@ -333,12 +387,15 @@ class MainWindow(QMainWindow):
             val.setFont(QFont("Consolas", 18, QFont.Weight.Bold))
             pitch_grid.addWidget(val, 1, col)
 
-            if label == "ACTUAL":
+            if label == "TARGET":
+                self.pitch_target = val
+            elif label == "ACTUAL":
                 self.pitch_actual = val
             elif label == "ERROR":
                 self.pitch_error = val
 
         pitch_layout.addLayout(pitch_grid)
+
         right.addWidget(pitch_card)
 
         # Controls + log
@@ -361,99 +418,31 @@ class MainWindow(QMainWindow):
         snapshot_action.setShortcut("Ctrl+S")
         snapshot_action.triggered.connect(self._on_snapshot)
 
-        recording_action = file_menu.addAction("Save Last 5-Minute Recording")
+        recording_action = file_menu.addAction("Save Recent Recording")
         recording_action.setShortcut("Ctrl+R")
         recording_action.triggered.connect(self._on_save_recording)
 
-        # Debug menu — inject simulated PUI messages on macOS / dev rigs.
-        # Only meaningful when the underlying transport is a MockPUITransport.
-        debug_menu = menu_bar.addMenu("Debug")
-        debug_menu.addSection("PUI injection")
-        for raw in ("D1+1", "D1+2", "D1+3", "D1-1", "D1-2", "D1-3"):
-            debug_menu.addAction(
-                f"Inject {raw}",
-                lambda r=raw: self._inject_pui_message(r),
-            )
-        debug_menu.addSeparator()
-        for raw in ("D2+1", "D2+2", "D2+3", "D2-1", "D2-2", "D2-3"):
-            debug_menu.addAction(
-                f"Inject {raw}",
-                lambda r=raw: self._inject_pui_message(r),
-            )
-        debug_menu.addSeparator()
-        for label, raw in (
-            ("AS0 (manual)", "AS0"),
-            ("AS1 (auto)", "AS1"),
-            ("TP (toggle power)", "TP"),
-        ):
-            debug_menu.addAction(
-                f"Inject {label}",
-                lambda r=raw: self._inject_pui_message(r),
-            )
+        # Settings menu — reopen the startup config + edit detent increments.
+        settings_menu = menu_bar.addMenu("Settings")
+        target_action = settings_menu.addAction("Target Parameters...")
+        target_action.triggered.connect(self._on_edit_target_params)
+        detent_action = settings_menu.addAction("Detent Configurator...")
+        detent_action.triggered.connect(self._on_edit_detents)
 
-        debug_menu.addSeparator()
-        debug_menu.addSection("SPI speed injection")
-        for speed, label in ((500, "500 RPM"), (1000, "1000 RPM"), (0, "0 RPM (stop)")):
-            debug_menu.addAction(
-                f"Wrap speed: {label}",
-                lambda s=speed, l=label: self._inject_speed_response(
-                    self.wrap_motor_controller, s, f"wrap {l}"
-                ),
-            )
-        debug_menu.addSeparator()
-        for speed, label in ((10, "10 mm/s"), (5, "5 mm/s"), (0, "0 mm/s (stop)")):
-            debug_menu.addAction(
-                f"Feed speed: {label}",
-                lambda s=speed, l=label: self._inject_speed_response(
-                    self.feed_motor_controller, s, f"feed {l}"
-                ),
-            )
-        debug_menu.addSeparator()
-        debug_menu.addAction(
-            "Inject custom wrap speed...",
-            lambda: self._prompt_and_inject(self.wrap_motor_controller, is_wrap=True),
+        # Tools menu — developer utilities that don't affect the live path.
+        tools_menu = menu_bar.addMenu("Tools")
+        hil_action = tools_menu.addAction("HIL Test Runner…")
+        hil_action.triggered.connect(self._on_open_hil_panel)
+
+        # Off by default: live camera pitch detection does not drive motor
+        # corrections (avoids garbage corrections from a webcam / no microscope).
+        # Enable once a real microscope is attached.
+        self._camera_correction_action = tools_menu.addAction(
+            "Live camera pitch correction"
         )
-        debug_menu.addAction(
-            "Inject custom feed speed...",
-            lambda: self._prompt_and_inject(self.feed_motor_controller, is_wrap=False),
-        )
-
-    def _inject_pui_message(self, raw: str) -> None:
-        """Inject a PUI message — only works when transport is the Mock variant."""
-        transport = self._transports.pui
-        inject = getattr(transport, "inject", None)
-        if inject is None:
-            self.alert_log.log(
-                "PUI injection only available in mock mode", "warning"
-            )
-            return
-        inject(raw)
-
-    def _inject_speed_response(
-        self, controller: MotorController, speed_units: int, label: str
-    ) -> None:
-        """Inject a fake Arduino current-speed reply into a MockSPITransport."""
-        transport = controller._transport
-        if not isinstance(transport, MockSPITransport):
-            self.alert_log.log(
-                f"Speed injection only available in mock mode ({label})", "warning"
-            )
-            return
-        packet = bytes([ResponsePrefix.CURRENT_SPEED]) + struct.pack("<H", speed_units)
-        transport.inject_response(packet)
-        self.alert_log.log(
-            f"Injected speed response → {label}: {speed_units} units", "info"
-        )
-
-    def _prompt_and_inject(self, controller: MotorController, is_wrap: bool) -> None:
-        label = "wrap" if is_wrap else "feed"
-        title = f"Inject {label} speed"
-        prompt = f"Enter {label} speed in {'RPM' if is_wrap else 'mm/s'}:"
-        value, ok = QInputDialog.getDouble(self, title, prompt, 0.0, 0.0, 100000.0, 1)
-        if not ok:
-            return
-        units = int(round(value * (WRAP_RPM_UNITS_PER if is_wrap else FEED_MMS_UNITS_PER)))
-        self._inject_speed_response(controller, units, f"{label} {value:.1f}")
+        self._camera_correction_action.setCheckable(True)
+        self._camera_correction_action.setChecked(self._camera_correction_enabled)
+        self._camera_correction_action.toggled.connect(self._on_camera_correction_toggled)
 
     # ------------------------------------------------------------------
     # Signal wiring
@@ -464,13 +453,17 @@ class MainWindow(QMainWindow):
         self.controls.stop_clicked.connect(self._on_stop)
         self.controls.snapshot_clicked.connect(self._on_snapshot)
         self.controls.recalibrate_clicked.connect(self._on_recalibrate)
-        self.controls.test_clicked.connect(self._on_test_motors)
         self.camera.position_changed.connect(self._on_position_changed)
 
         self.controls.manual_mode_toggled.connect(self._on_manual_mode_button)
 
         self.feed_motor_panel.manual_speed_changed.connect(self._on_feed_motor_set)
         self.wrap_motor_panel.manual_speed_changed.connect(self._on_wrap_motor_set)
+
+        self.feed_motor_panel.manual_speed_rejected.connect(
+            lambda msg: self.alert_log.log(f"Feed motor: {msg}", "warning"))
+        self.wrap_motor_panel.manual_speed_rejected.connect(
+            lambda msg: self.alert_log.log(f"Wrapper motor: {msg}", "warning"))
 
     def _connect_app_state_signals(self) -> None:
         """AppState is the single source of truth. GUI buttons → AppState;
@@ -483,11 +476,16 @@ class MainWindow(QMainWindow):
             self.feed_motor_panel.set_manual_mode(is_manual)
             self.wrap_motor_panel.set_manual_mode(is_manual)
             if is_manual:
+                # Manual mode owns the motors; pitch detection must not keep
+                # consuming frames or running in the background.
+                self._stop_pitch_detection()
                 self._manual_overlay_panel.show()
                 self._recompute_pitch_overlay()
             else:
                 self._manual_overlay_panel.hide()
                 self.camera.clear_pitch_overlay()
+                # Resume only if the machine is running (no-op otherwise).
+                self._start_pitch_detection_if_allowed()
 
         def on_power(on: bool):
             self.alert_log.log(
@@ -500,9 +498,31 @@ class MainWindow(QMainWindow):
 
         def on_wrap(rpm: float):
             self.alert_log.log(f"Wrap speed: {rpm:.2f} rpm", "info")
+            # Commanded wrapper speed is the panel target.
+            self.wrap_motor_panel.set_target(rpm)
 
         def on_feed(mms: float):
             self.alert_log.log(f"Feed speed: {mms:.3f} mm/s", "info")
+            # Commanded feed speed is the panel target (AUTO correction or manual).
+            self.feed_motor_panel.set_target(mms)
+            # Manual changes (GUI SET or PUI dial) are telemetry'd here; AUTO/HIL
+            # corrections are recorded inside process_pitch_result instead.
+            if self.app_state.mode == Mode.MANUAL:
+                self.telemetry.record_command(
+                    mode="MANUAL",
+                    source="GUI/PUI",
+                    target_pitch_mm=self.config.target_pitch_um / 1000.0,
+                    previous_feed_speed_mm_s=self._prev_feed_commanded,
+                    commanded_feed_speed_mm_s=mms,
+                    command_sent_successfully=self.app_state.machine_on,
+                    reason="manual feed change",
+                )
+                # Operator set the feed speed → derive the paired wrapper speed.
+                # (AUTO/HIL corrections leave the wrapper fixed — they don't
+                # reach this branch.)
+                self._recompute_wrapper_from_feed()
+            self._prev_feed_commanded = mms
+            self._refresh_telemetry_labels()
 
         self.app_state.mode_changed.connect(on_mode)
         self.app_state.machine_power_changed.connect(on_power)
@@ -524,9 +544,7 @@ class MainWindow(QMainWindow):
         self.pui_listener.hardware_unavailable.connect(
             lambda err: self.alert_log.log(f"PUI hardware unavailable: {err}", "warning")
         )
-        self.app_state.motor_error.connect(
-            lambda err: self.alert_log.log(f"Motor error: {err}", "error")
-        )
+        self.app_state.motor_error.connect(self._handle_app_motor_error)
         self.app_state.mode_change_blocked.connect(
             lambda reason: self.alert_log.log(reason, "warning")
         )
@@ -539,15 +557,20 @@ class MainWindow(QMainWindow):
 
         def _on_feed_current(units: int) -> None:
             self._last_feed_feedback_ts = datetime.now().timestamp()
-            self.feed_motor_panel.update_metrics(units / FEED_MMS_UNITS_PER)
+            actual_mms = units / FEED_MMS_UNITS_PER
+            self.feed_motor_panel.update_metrics(actual_mms)
+            # Telemetry: actual speed + motor response time for the pending command.
+            self.telemetry.record_motor_feedback(actual_mms)
+            self._warn_on_feed_mismatch()
+            self._refresh_telemetry_labels()
 
         self.wrap_motor_controller.current_speed.connect(_on_wrap_current)
         self.feed_motor_controller.current_speed.connect(_on_feed_current)
         self.wrap_motor_controller.error_received.connect(
-            lambda code: self.alert_log.log(f"Wrap motor error code {code}", "error")
+            lambda code: self._handle_motor_response_error("wrap", code)
         )
         self.feed_motor_controller.error_received.connect(
-            lambda code: self.alert_log.log(f"Feed motor error code {code}", "error")
+            lambda code: self._handle_motor_response_error("feed", code)
         )
         self.wrap_motor_controller.raw_bytes_received.connect(
             lambda b: self.alert_log.log(
@@ -561,15 +584,68 @@ class MainWindow(QMainWindow):
         )
 
     def _poll_motors(self) -> None:
+        # Poll both motors every tick (10 Hz) so the GUI speed readouts stay
+        # live; only print the combined line every Nth tick (~1 s).
+        wrap = feed = None
         try:
-            self.wrap_motor_controller.poll()
+            wrap = self.wrap_motor_controller.poll()
         except Exception as e:
             # Swallow per-tick errors so a transient SPI glitch doesn't kill the timer.
             self.alert_log.log(f"Wrap poll error: {e}", "warning")
         try:
-            self.feed_motor_controller.poll()
+            feed = self.feed_motor_controller.poll()
         except Exception as e:
             self.alert_log.log(f"Feed poll error: {e}", "warning")
+
+        self._poll_print_counter += 1
+        if self._poll_print_counter % POLL_PRINT_EVERY == 0:
+            print(f"{self._format_poll_field('WRAP', wrap)}"
+                  f"  ||  {self._format_poll_field('FEED', feed)}")
+
+    @staticmethod
+    def _format_poll_field(label: str, r) -> str:
+        """One motor's half of the combined SPI poll line, aligned columns."""
+        if r is None:
+            return f"{label}  TX:--------  RX:--------  spd=---"
+        tx = r.tx.hex(' ')
+        rx = r.rx.hex(' ') if r.rx else "--------"
+        spd = r.speed if r.speed is not None else "---"
+        return f"{label}  TX:{tx}  RX:{rx:<8}  spd={spd}"
+
+    def _handle_app_motor_error(self, err: str) -> None:
+        """Handle errors raised while sending commands to the motor controllers."""
+        self._handle_motor_fault(
+            message=f"Motor error: {err}",
+            recording_reason="motor_error",
+        )
+
+    def _handle_motor_response_error(self, role: str, code: int) -> None:
+        """Handle an Arduino SPI ERROR response packet."""
+        label = role.capitalize()
+        self._handle_motor_fault(
+            message=f"{label} motor error code {code}",
+            recording_reason=f"{role}_motor_error",
+        )
+
+    def _handle_motor_fault(self, message: str, recording_reason: str) -> None:
+        """Log a sudden motor fault, stop the machine, then keep recent footage."""
+        self.alert_log.log(message, "error")
+
+        machine_on = getattr(self.app_state, "machine_on", self._is_running)
+        if machine_on and not self._motor_fault_shutdown_pending:
+            self._motor_fault_shutdown_pending = True
+            self.alert_log.log("Motor fault detected — stopping system", "error")
+            self._shutdown_after_motor_fault()
+
+        self._persist_recording(recording_reason)
+
+    def _shutdown_after_motor_fault(self) -> None:
+        try:
+            self.app_state.gui_set_machine_on(False)
+        except Exception as e:
+            self.alert_log.log(f"Motor-fault shutdown failed: {e}", "error")
+        finally:
+            self._motor_fault_shutdown_pending = False
 
     # ------------------------------------------------------------------
     # Manual-speed SET buttons
@@ -654,16 +730,160 @@ class MainWindow(QMainWindow):
         self.camera.set_pitch_overlay(spacing_px, tilt_deg)
 
     # ------------------------------------------------------------------
-    # Start / stop
+    # Settings dialogs (in-session config edits)
     # ------------------------------------------------------------------
 
-    def _on_test_motors(self) -> None:
-        try:
-            self.wrap_motor_controller.test_movement(1)
-            self.feed_motor_controller.test_movement(1)
-            self.alert_log.log("Test movement sent to both motors (0x04)", "info")
-        except Exception as e:
-            self.alert_log.log(f"Test movement failed: {e}", "error")
+    def _on_edit_target_params(self) -> None:
+        """Reopen the startup configuration dialog after launch. Edits are
+        applied onto the existing config object (AppState shares the reference)
+        and persisted."""
+        dialog = StartupConfigDialog(initial=self.config, parent=self)
+        dialog.setWindowTitle("Silverworm — Target Parameters")
+        if dialog.exec() != StartupConfigDialog.DialogCode.Accepted:
+            return
+
+        new = dialog.config()
+        platform_changed = new.hw_platform != self.config.hw_platform
+
+        # Mutate in place — AppState holds the same AppConfig instance.
+        self.config.target_pitch_um = new.target_pitch_um
+        self.config.wire_thickness_um = new.wire_thickness_um
+        self.config.tube_diameter_mm = new.tube_diameter_mm
+        self.config.initial_feed_speed_mms = new.initial_feed_speed_mms
+        self.config.remember_settings = new.remember_settings
+        self.config.hw_platform = new.hw_platform
+        save_config(self.config)
+
+        # Refresh the GUI to reflect the new config:
+        #  - pitch TARGET label
+        #  - feed motor target (re-applied initial feed speed)
+        #  - wrapper motor target (derived from feed via the initial formula)
+        self._update_pitch_target_label()
+        if self.config.initial_feed_speed_mms > 0:
+            self.app_state.gui_set_feed_speed(self.config.initial_feed_speed_mms)
+        self._recompute_wrapper_from_feed()
+
+        # Overlay geometry depends on these values, but is only shown in manual mode.
+        if self.app_state.mode == Mode.MANUAL:
+            self._recompute_pitch_overlay()
+        self.alert_log.log("Target parameters updated", "success")
+        if platform_changed:
+            self.alert_log.log(
+                f"Hardware platform → {self.config.hw_platform.upper()} "
+                "(takes effect on restart)",
+                "warning",
+            )
+
+    def _on_edit_detents(self) -> None:
+        """Edit the dial-increment values. The new DetentConfig replaces the
+        one on the shared config object, so future PUI dial events use it."""
+        dialog = DetentConfigDialog(self.config.detent_config, parent=self)
+        if dialog.exec() != DetentConfigDialog.DialogCode.Accepted:
+            return
+
+        self.config.detent_config = dialog.detent_config()
+        save_config(self.config)
+        self.alert_log.log("Detent configuration updated", "success")
+
+    def _apply_initial_speeds(self) -> None:
+        """Pre-load the configured initial feed speed into AppState (machine off
+        → no SPI yet) so the motor panel shows the right target on startup.
+        When the machine is turned on, AppState sends this as the START payload.
+        The paired wrapper speed is derived from the feed speed via the formula."""
+        self._update_pitch_target_label()
+        if self.config.initial_feed_speed_mms > 0:
+            self.app_state.gui_set_feed_speed(self.config.initial_feed_speed_mms)
+        self._recompute_wrapper_from_feed()
+
+    def _recompute_wrapper_from_feed(self) -> None:
+        """Derive the wrapper RPM from the current feed speed + target pitch +
+        geometry (initial-setpoint formula) and apply it. Updates the wrapper
+        panel target, and sends SPI when the machine is running. Skipped if the
+        inputs are invalid (e.g. feed speed 0)."""
+        rpm = compute_wrapper_rpm_from_feed_speed(
+            feed_speed_mm_s=self.app_state.feed_speed_mms,
+            target_pitch_mm=self.config.target_pitch_um / 1000.0,
+            tube_diameter_mm=self.config.tube_diameter_mm,
+            wire_diameter_mm=self.config.wire_thickness_um / 1000.0,
+        )
+        if rpm is None:
+            return
+        self.app_state.gui_set_wrap_speed(rpm)  # clamps to ≥ WRAP_SPEED_MIN_RPM
+        self.alert_log.log(
+            f"Wrapper speed from feed {self.app_state.feed_speed_mms:.3f} mm/s "
+            f"→ {self.app_state.wrap_speed_rpm:.0f} rpm",
+            "info",
+        )
+
+    def _update_pitch_target_label(self) -> None:
+        """Refresh the TARGET cell in the pitch metrics card from current config."""
+        self.pitch_target.setText(
+            f"{self.config.target_pitch_um / 1000.0:.3f} mm"
+        )
+
+    def _on_hil_target_pitch_changed(self, target_mm: float) -> None:
+        """HIL panel changed its target pitch — update the GUI display so the
+        recording shows the HIL target, not the config default."""
+        self.pitch_target.setText(f"{target_mm:.3f} mm")
+
+    def _on_hil_speed_commanded(self, speed_mm_s: float) -> None:
+        """Called whenever the HIL panel calculates a correction (mock or live).
+        Updates the feed motor panel target and the telemetry readout so the
+        operator sees the new commanded speed immediately."""
+        self.feed_motor_panel.set_target(speed_mm_s)
+        self._refresh_telemetry_labels()
+
+    def _on_hil_feed_setpoint(self, feed_mm_s: float, wrapper_rpm: float) -> None:
+        """Operator set the feed speed directly in the HIL panel. Apply the feed
+        speed and the derived wrapper speed to AppState — this updates both
+        motor panel targets and sends SPI when the machine is running."""
+        self.app_state.gui_set_feed_speed(feed_mm_s)
+        if wrapper_rpm > 0:
+            self.app_state.gui_set_wrap_speed(wrapper_rpm)  # clamps to ≥ 1800 rpm
+        self._refresh_telemetry_labels()
+
+    def _on_open_hil_panel(self) -> None:
+        """Open the HIL Test Runner.
+
+        Passes the live AppState and TelemetryLog so the panel can inject
+        pitch readings directly into the running feed-motor SPI path when
+        real hardware is connected. When no hardware is attached the panel
+        falls back to mock mode automatically.
+        """
+        panel = HILTestPanel(
+            self.config,
+            app_state=self.app_state,
+            telemetry=self.telemetry,
+            parent=self,
+        )
+        panel.speed_commanded.connect(self._on_hil_speed_commanded)
+        panel.target_pitch_changed.connect(self._on_hil_target_pitch_changed)
+        panel.feed_setpoint_changed.connect(self._on_hil_feed_setpoint)
+        panel.exec()
+        # Restore the real config target after the HIL session ends.
+        self._update_pitch_target_label()
+
+    def _on_camera_correction_toggled(self, enabled: bool) -> None:
+        """Enable/disable the live camera pitch pipeline driving corrections.
+        Starts detection immediately if turned on while running in AUTO;
+        stops it (and frees the camera feed) when turned off."""
+        self._camera_correction_enabled = enabled
+        if enabled:
+            self.alert_log.log(
+                "Live camera pitch correction ENABLED — camera now drives feed speed",
+                "warning",
+            )
+            self._start_pitch_detection_if_allowed()
+        else:
+            self.alert_log.log(
+                "Live camera pitch correction disabled — corrections come from HIL only",
+                "info",
+            )
+            self._stop_pitch_detection()
+
+    # ------------------------------------------------------------------
+    # Start / stop
+    # ------------------------------------------------------------------
 
     def _on_start(self) -> None:
         self.app_state.gui_set_machine_on(True)
@@ -677,6 +897,10 @@ class MainWindow(QMainWindow):
         if running:
             try:
                 self._is_running = True
+                self._last_feed_feedback_ts = 0.0
+                self._last_wrap_feedback_ts = 0.0
+                self.feed_motor_panel.update_metrics(None)
+                self.wrap_motor_panel.update_metrics(None)
                 self.controls.set_running(True)
                 self.feed_motor_panel.set_running(True)
                 self.wrap_motor_panel.set_running(True)
@@ -689,19 +913,13 @@ class MainWindow(QMainWindow):
                 self.metrics_timer.start(150)
                 self.graph_timer.start(500)
 
-                if self.camera_worker and not hasattr(self, "_pitch_connected"):
-                    try:
-                        self.camera_worker.frame_ready.connect(self.pitch_pipeline.update_frame)
-                        self._pitch_connected = True
-                        self.alert_log.log("Pitch detection connected to camera", "info")
-                    except Exception as e:
-                        self.alert_log.log(f"Failed to connect pitch detection: {e}", "warning")
+                # Motors start at the configured initial feed speed (already in
+                # AppState from startup). The feed speed is deliberately NOT
+                # changed on Start — it only updates when an AUTO pitch
+                # correction (or a HIL inject) is applied.
 
-                try:
-                    self.pitch_pipeline.start()
-                    self.alert_log.log("Pitch detection started", "info")
-                except Exception as e:
-                    self.alert_log.log(f"Failed to start pitch detection: {e}", "warning")
+                # Only runs detection if we're also in AUTO mode.
+                self._start_pitch_detection_if_allowed()
 
                 self.alert_log.log("System started — wrapping process initiated", "success")
 
@@ -714,9 +932,13 @@ class MainWindow(QMainWindow):
                     pass
         else:
             self._is_running = False
+            self._last_feed_feedback_ts = 0.0
+            self._last_wrap_feedback_ts = 0.0
             self.controls.set_running(False)
             self.feed_motor_panel.set_running(False)
             self.wrap_motor_panel.set_running(False)
+            self.feed_motor_panel.update_metrics(None)
+            self.wrap_motor_panel.update_metrics(None)
 
             self.status_indicator.set_color(Theme.ERROR)
             self.status_indicator.stop()
@@ -726,12 +948,129 @@ class MainWindow(QMainWindow):
             self.metrics_timer.stop()
             self.graph_timer.stop()
 
-            try:
-                self.pitch_pipeline.stop()
-                self.alert_log.log("Pitch detection stopped", "info")
-            except Exception:
-                pass
+            self._stop_pitch_detection()
             self.alert_log.log("System stopped", "warning")
+
+    # ------------------------------------------------------------------
+    # Pitch-detection lifecycle
+    # ------------------------------------------------------------------
+
+    def _apply_auto_startup_feed_speed(self) -> None:
+        """Seed the feed speed from the theoretical formula on AUTO startup.
+
+        Only runs in AUTO mode (manual keeps the operator's speed). Skipped
+        silently if the geometry is invalid (e.g. wrapper speed is 0).
+        """
+        if self.app_state.mode != Mode.AUTO:
+            return
+        v_initial = compute_initial_feed_speed_mm_s(
+            wrapper_rpm=self.app_state.wrap_speed_rpm,
+            target_pitch_mm=self.config.target_pitch_um / 1000.0,
+            tube_diameter_mm=self.config.tube_diameter_mm,
+            wire_diameter_mm=self.config.wire_thickness_um / 1000.0,
+        )
+        if v_initial is None:
+            return
+        # gui_set_feed_speed clamps to the safe feed-speed bounds + sends SET_SPEED.
+        self.app_state.gui_set_feed_speed(v_initial)
+        self.alert_log.log(
+            f"AUTO startup feed speed → {self.app_state.feed_speed_mms:.3f} mm/s "
+            f"(theoretical {v_initial:.3f})",
+            "info",
+        )
+
+    # ------------------------------------------------------------------
+    # Telemetry (commanded vs actual feed speed + testing-report readouts)
+    # ------------------------------------------------------------------
+
+    def _warn_on_feed_mismatch(self) -> None:
+        """Surface a non-blocking warning if actual feed speed drifts from the
+        commanded speed. Debounced; does NOT switch to Manual Mode."""
+        warning = self.telemetry.mismatch_warning(self.app_state.feed_speed_mms)
+        if warning is None:
+            return
+        now = datetime.now().timestamp()
+        if now - self._last_mismatch_warn_ts < 5.0:
+            return
+        self._last_mismatch_warn_ts = now
+        self.alert_log.log(warning, "warning")
+
+    def _refresh_telemetry_labels(self) -> None:
+        """No-op: the on-screen telemetry readout was removed; telemetry data
+        is still tracked on ``self.telemetry`` for recordings/export."""
+
+    def _start_pitch_detection_if_allowed(self) -> None:
+        """Start pitch detection only when the machine is RUNNING and in AUTO.
+
+        Connects the active camera's frames to the pipeline exactly once
+        (tracked via ``_pitch_source``) and starts the periodic timer. Safe
+        to call repeatedly — it no-ops if already running or not allowed.
+        """
+        if not self._is_running or self.app_state.mode != Mode.AUTO:
+            return
+        # Live camera correction is opt-in. While disabled, the camera is a
+        # viewfinder only and pitch corrections come from HIL injection.
+        if not self._camera_correction_enabled:
+            return
+        if self.camera_worker is None:
+            return
+        if self._pitch_source is None:
+            self.camera_worker.frame_ready.connect(self.pitch_pipeline.update_frame)
+            self._pitch_source = self.camera_worker
+        if not self.pitch_pipeline.is_active():
+            self.pitch_pipeline.start()
+            self.alert_log.log("Pitch detection started", "info")
+
+    def _stop_pitch_detection(self) -> None:
+        """Stop pitch detection: stop the timer, drop the retained frame, and
+        disconnect the camera feed so no frames are consumed in the background."""
+        was_running = self.pitch_pipeline.is_active() or self._pitch_source is not None
+        self.pitch_pipeline.stop()  # also clears the retained frame
+        if self._pitch_source is not None:
+            try:
+                self._pitch_source.frame_ready.disconnect(self.pitch_pipeline.update_frame)
+            except (TypeError, RuntimeError):
+                pass  # already disconnected / worker gone
+            self._pitch_source = None
+        if was_running:
+            self.alert_log.log("Pitch detection stopped", "info")
+
+    def _rewire_pitch_source(self) -> None:
+        """Move the pitch frame feed to the active camera after a toggle.
+        Only meaningful while pitch detection is active."""
+        if self._pitch_source is self.camera_worker:
+            return
+        if self._pitch_source is not None:
+            try:
+                self._pitch_source.frame_ready.disconnect(self.pitch_pipeline.update_frame)
+            except (TypeError, RuntimeError):
+                pass
+        if self.camera_worker is not None:
+            self.camera_worker.frame_ready.connect(self.pitch_pipeline.update_frame)
+        self._pitch_source = self.camera_worker
+
+    # ------------------------------------------------------------------
+    # Incident recording (persist temp footage only on a sudden error)
+    # ------------------------------------------------------------------
+
+    def _persist_recording(self, reason: str) -> None:
+        """Flush the rolling temp footage to a permanent MP4. Debounced so a
+        burst of errors doesn't spawn many overlapping saves."""
+        now = datetime.now().timestamp()
+        if now - self._last_incident_save_ts < 20.0:
+            return
+        self._last_incident_save_ts = now
+
+        path = self.storage.timestamped_path(
+            self.storage.recordings_dir, f"incident_{reason}", "mp4"
+        )
+        try:
+            if self.rolling_buffer.save(path):
+                self.alert_log.log(f"Incident recording saved: {path.name}", "success")
+            else:
+                self.alert_log.log("Incident recording: no footage to save", "warning")
+        except Exception as e:
+            self.alert_log.log(f"Incident recording failed: {e}", "error")
 
     # ------------------------------------------------------------------
     # Metric / graph ticks
@@ -740,16 +1079,11 @@ class MainWindow(QMainWindow):
     def _update_metrics(self) -> None:
         """Periodic UI metric refresh.
 
-        - Manual mode: show the current setpoint as the actual value (no
-          real feedback path until the Arduino reports `current_speed`).
-        - Auto mode: show N/A when no recent SPI feedback has arrived.
+        Only real SPI feedback is allowed to populate the actual-speed fields.
+        When feedback goes stale, clear the readout instead of mirroring the
+        current setpoint.
         """
         if not self._is_running:
-            return
-
-        if self.app_state.mode == Mode.MANUAL:
-            self.feed_motor_panel.update_metrics(self.app_state.feed_speed_mms)
-            self.wrap_motor_panel.update_metrics(self.app_state.wrap_speed_rpm)
             return
 
         now_ts = datetime.now().timestamp()
@@ -855,6 +1189,16 @@ class MainWindow(QMainWindow):
 
     def _on_raw_frame(self, frame: np.ndarray) -> None:
         self._current_raw_frame = frame
+        # Occasional recorder telemetry (~every 600 frames ≈ 20 s @30fps).
+        self._buffer_log_counter += 1
+        if self._buffer_log_counter >= 600:
+            self._buffer_log_counter = 0
+            mb = self.rolling_buffer.estimated_bytes / (1024 * 1024)
+            self.alert_log.log(
+                f"Recording buffer: {self.rolling_buffer.segment_count} segments, "
+                f"{self.rolling_buffer.duration_seconds:.0f}s on disk, ~{mb:.0f} MB",
+                "info",
+            )
 
     def _on_camera_toggle(self) -> None:
         """Switch the displayed feed between microscope and external webcam."""
@@ -870,6 +1214,8 @@ class MainWindow(QMainWindow):
             self._secondary_worker.frame_ready.connect(self._on_raw_frame)
             self._active_camera = "webcam"
             self.camera_worker = self._secondary_worker
+            if self._pitch_source is not None:
+                self._rewire_pitch_source()
             self._cam_toggle_btn.setText("Switch to Microscope")
             self.alert_log.log("Camera feed → webcam", "info")
             self._cam_warning_label.hide()
@@ -885,6 +1231,8 @@ class MainWindow(QMainWindow):
             self._primary_worker.frame_ready.connect(self._on_raw_frame)
             self._active_camera = "microscope"
             self.camera_worker = self._primary_worker
+            if self._pitch_source is not None:
+                self._rewire_pitch_source()
             self._cam_toggle_btn.setText("Switch to Webcam")
             self.alert_log.log("Camera feed → microscope", "info")
             self._cam_warning_label.hide()
@@ -894,6 +1242,7 @@ class MainWindow(QMainWindow):
         if role == self._active_camera:
             self._cam_warning_label.setText(f"Camera error: {role}")
             self._cam_warning_label.show()
+            self._persist_recording("camera_error")
 
     # ------------------------------------------------------------------
     # Pitch results
@@ -911,7 +1260,7 @@ class MainWindow(QMainWindow):
 
             self.pitch_actual.setText(f"{result.mean_pitch_um:.2f} μm")
 
-            target_um = 1000.0
+            target_um = self.config.target_pitch_um
             error_pct = abs((result.mean_pitch_um - target_um) / target_um * 100)
             self.pitch_error.setText(f"{error_pct:.1f}%")
 
@@ -936,6 +1285,21 @@ class MainWindow(QMainWindow):
                     confidence=result.confidence,
                     pitch_um=result.mean_pitch_um,
                 )
+            # A FAILED reading is a genuine fault — keep the recent footage.
+            if result.confidence == "FAILED":
+                self._persist_recording("pitch_failed")
+
+            # Route the real result through the SAME shared control backend the
+            # HIL test uses: HIGH/MEDIUM in AUTO+running → feed correction;
+            # LOW/FAILED → Manual Mode; off/manual → no-op (guarded inside).
+            measurement = measurement_from_pitch_result(result, source="camera")
+            self.alert_log.log(
+                process_pitch_result(
+                    measurement, self.app_state, self.config, telemetry=self.telemetry
+                ),
+                "info",
+            )
+            self._refresh_telemetry_labels()
         except Exception as e:
             self.alert_log.log(f"Error processing pitch result: {e}", "error")
 
@@ -1027,9 +1391,22 @@ class MainWindow(QMainWindow):
             self.alert_log.log("No frames in buffer yet — nothing to save", "warning")
             return
 
-        path = self.storage.timestamped_path(
-            self.storage.recordings_dir, "recording", "mp4"
+        default_path = self.storage.timestamped_path(
+            Path(self._recording_save_dir), "recording", "mp4"
         )
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Recent Recording",
+            str(default_path),
+            "MP4 Video (*.mp4);;All Files (*)",
+        )
+        if not file_path:
+            return
+
+        path = Path(file_path)
+        if not path.suffix:
+            path = path.with_suffix(".mp4")
+
         dur = self.rolling_buffer.duration_seconds
         self.alert_log.log(
             f"Saving recording ({dur:.0f}s, {self.rolling_buffer.frame_count} frames)...",
@@ -1037,7 +1414,11 @@ class MainWindow(QMainWindow):
         )
 
         if self.rolling_buffer.save(path):
-            self.alert_log.log(f"Recording saved: {path.name}", "success")
+            self._recording_save_dir = path.parent
+            self.alert_log.log(
+                f"Recording saved: {path.name} — location: {path.parent}",
+                "success",
+            )
         else:
             self.alert_log.log("Recording save failed (cv2 or no frames)", "error")
 
@@ -1121,7 +1502,14 @@ class MainWindow(QMainWindow):
             self._primary_worker.stop()
         if self._secondary_worker:
             self._secondary_worker.stop()
-        self.pitch_pipeline.stop()
+        self._stop_pitch_detection()
+        # Workers are stopped — no more add_frame() — so it's safe to delete
+        # the temp footage. Routine recordings are not kept (see requirement:
+        # only persist on a sudden error).
+        try:
+            self.rolling_buffer.discard()
+        except Exception:
+            pass
         self.storage.shutdown()
         try:
             self.pui_listener.stop()

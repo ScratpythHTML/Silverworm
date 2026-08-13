@@ -1,0 +1,6 @@
+# Keep local-only / generated files out of `git archive` and GitHub "Download ZIP".
+.claude/ export-ignore
+.DS_Store export-ignore
+__pycache__/ export-ignore
+*.pyc export-ignore
+hil_run_*.csv export-ignore

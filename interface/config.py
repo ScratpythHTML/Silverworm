@@ -23,6 +23,14 @@ APP_NAME = "Silverworm"
 CONFIG_FILENAME = "config.json"
 
 
+# Manual-speed input bounds — single source of truth, shared by app_state,
+# controller, and the UI motor panels. Change here to affect all three.
+WRAP_SPEED_MIN_RPM = 1500.0
+WRAP_SPEED_MAX_RPM = 3000.0   # Wrapper motor (RPM)
+FEED_SPEED_MIN_MMS = 0.0
+FEED_SPEED_MAX_MMS = 20.0     # Feed motor (mm/s)
+
+
 @dataclass
 class DetentConfig:
     """
@@ -31,9 +39,9 @@ class DetentConfig:
     The PUI sends "D1±N" where N ∈ {1,2,3} selects the detent size and the
     sign selects the direction. Each (dial, size) maps to an increment here.
     """
-    dial1_small_rpm: float = 0.1
-    dial1_medium_rpm: float = 0.5
-    dial1_large_rpm: float = 1.0
+    dial1_small_rpm: float = 5
+    dial1_medium_rpm: float = 20
+    dial1_large_rpm: float = 100
     dial2_small_mms: float = 0.01
     dial2_medium_mms: float = 0.05
     dial2_large_mms: float = 0.1
@@ -44,6 +52,9 @@ class AppConfig:
     target_pitch_um: float = 250.0
     wire_thickness_um: float = 100.0
     tube_diameter_mm: float = 5.0
+    # Initial feed-motor speed (mm/s) set before AUTO correction takes over.
+    # Sent as the START payload when the machine is powered on.
+    initial_feed_speed_mms: float = 0.0
     detent_config: DetentConfig = field(default_factory=DetentConfig)
     manual_mode_gui_enabled: bool = False
     remember_settings: bool = True
@@ -70,6 +81,7 @@ class AppConfig:
             target_pitch_um=float(data.get("target_pitch_um", 250.0)),
             wire_thickness_um=float(data.get("wire_thickness_um", 100.0)),
             tube_diameter_mm=float(data.get("tube_diameter_mm", 5.0)),
+            initial_feed_speed_mms=float(data.get("initial_feed_speed_mms", 0.0)),
             detent_config=detent,
             manual_mode_gui_enabled=bool(data.get("manual_mode_gui_enabled", False)),
             remember_settings=bool(data.get("remember_settings", True)),

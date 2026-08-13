@@ -146,15 +146,20 @@ try:
     seen_nonzero = False
     for i in range(10):
         raw = bytes(spi.xfer2([0x05, 0x00, 0x00]))
-        speed_bytes = raw[1:]
-        speed = speed_bytes[0] | (speed_bytes[1] << 8)
         hex_raw = raw.hex(' ').upper()
-        if any(speed_bytes):
+        if len(raw) >= 3 and raw[0] == 0x01:
             seen_nonzero = True
-            if speed_bytes == bytes([0x05, 0x00]):
-                marker = "  ← still echoing (Arduino case 5 not implemented)"
-            else:
-                marker = f"  ← speed = {speed}"
+            speed = raw[1] | (raw[2] << 8)
+            marker = f"  ← current speed = {speed}"
+        elif len(raw) >= 3 and raw[0] == 0x02:
+            seen_nonzero = True
+            marker = f"  ← Arduino error code {raw[1]}"
+        elif len(raw) >= 2 and raw[0] == 0x03:
+            seen_nonzero = True
+            marker = f"  ← ACK/status for command 0x{raw[1]:02X}"
+        elif any(raw):
+            seen_nonzero = True
+            marker = "  ← unrecognised response framing"
         else:
             marker = "  ← zeros (CS not reaching Arduino SS, or ISR not loaded)"
         print(f"  [{i+1:02d}] {hex_raw}{marker}")
